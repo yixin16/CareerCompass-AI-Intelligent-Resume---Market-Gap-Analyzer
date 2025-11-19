@@ -1,4 +1,4 @@
-# 🧭 CareerCompass AI
+# 🧭 Career Compass AI: Intelligent Resume & Market gap Analyzer
 
 **Intelligent Resume & Market Gap Analyzer**
 
