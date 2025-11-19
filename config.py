@@ -33,7 +33,7 @@ JOB_SEARCH_KEYWORDS = [
 JOB_SEARCH_LOCATION = "Malaysia"
 
 # Maximum jobs to fetch total
-TOTAL_MAX_JOBS = 20
+TOTAL_MAX_JOBS = 30
 
 # Enable synthetic jobs if scraper results are low
 INCLUDE_SYNTHETIC_JOBS = True

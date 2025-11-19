@@ -1,317 +1,238 @@
 """
 Intelligent Job Matcher
-Advanced matching with detailed gap analysis and recommendations
+Uses Vector Similarity to match skills regardless of exact naming.
 """
 
-import re
 from typing import Dict, List
+from core.semantic_matcher import SemanticMatcher
 from utils.logger import logger
-from config import MATCHING_WEIGHTS, MATCH_THRESHOLDS
-
 
 class IntelligentJobMatcher:
-    """Advanced job matching with gap analysis."""
-    
     def __init__(self):
-        self.weights = MATCHING_WEIGHTS
-    
+        self.ai = SemanticMatcher()
+        # Weights for the final score
+        self.weights = {'skills': 0.8, 'experience': 0.2}
+
     def extract_job_requirements(self, job_desc: str, job_title: str) -> Dict:
-        """Extract comprehensive job requirements."""
-        from data.skill_categories import SKILL_CATEGORIES
+        """
+        Extracts requirements dynamically using AI validation.
+        """
+        import re
+        # 1. Extract potential technical nouns (Capitalized words)
+        candidates = set(re.findall(r'\b[A-Z][a-zA-Z0-9+#]*\b', job_desc))
         
-        text = (job_desc + " " + job_title).lower()
+        required_skills = []
         
-        requirements = {
-            'required_skills': [],
-            'preferred_skills': [],
-            'experience_years': 0,
-            'seniority_level': 'mid',
-            'education_level': None,
-            'must_have_count': 0,
-            'nice_to_have_count': 0
-        }
-        
-        # Extract skills
-        must_have_section = re.search(
-            r'(?:required|must have|essential)[:|\s](.*?)(?:preferred|nice to have|$)',
-            text, re.DOTALL | re.IGNORECASE
-        )
-        preferred_section = re.search(
-            r'(?:preferred|nice to have|bonus)[:|\s](.*?)(?:responsibilities|$)',
-            text, re.DOTALL | re.IGNORECASE
-        )
-        
-        must_have_text = must_have_section.group(1) if must_have_section else text
-        preferred_text = preferred_section.group(1) if preferred_section else ""
-        
-        for category, data in SKILL_CATEGORIES.items():
-            for skill in data['skills']:
-                pattern = r'\b' + re.escape(skill) + r'\b'
-                if re.search(pattern, must_have_text, re.IGNORECASE):
-                    requirements['required_skills'].append(skill)
-                elif re.search(pattern, preferred_text, re.IGNORECASE):
-                    requirements['preferred_skills'].append(skill)
-        
-        requirements['required_skills'] = list(set(requirements['required_skills']))
-        requirements['preferred_skills'] = list(set(requirements['preferred_skills']))
-        
-        # Experience
-        exp_patterns = [
-            r'(\d+)\+?\s*(?:years?|yrs?).*?experience',
-            r'minimum.*?(\d+)\s*(?:years?|yrs?)',
-            r'at least.*?(\d+)\s*(?:years?|yrs?)'
-        ]
-        for pattern in exp_patterns:
-            match = re.search(pattern, text)
-            if match:
-                requirements['experience_years'] = int(match.group(1))
-                break
-        
-        # Seniority
-        if any(w in text for w in ['senior', 'lead', 'principal', 'staff']):
-            requirements['seniority_level'] = 'senior'
-        elif any(w in text for w in ['junior', 'entry', 'graduate']):
-            requirements['seniority_level'] = 'junior'
-        
-        return requirements
-    
-    def calculate_skill_match(self, resume_skills: Dict, job_req: Dict) -> Dict:
-        """Calculate detailed skill matching."""
-        # Flatten resume skills
-        resume_skill_dict = {}
-        for category, skill_list in resume_skills.items():
-            for skill_data in skill_list:
-                resume_skill_dict[skill_data['skill'].lower()] = {
-                    'proficiency': skill_data.get('proficiency', 0.75),
-                    'category': category
-                }
-        
-        required_skills = [s.lower() for s in job_req.get('required_skills', [])]
-        preferred_skills = [s.lower() for s in job_req.get('preferred_skills', [])]
-        
-        # Match required
-        matched_required = []
-        missing_required = []
-        
-        for req_skill in required_skills:
-            matched = False
-            for res_skill, res_data in resume_skill_dict.items():
-                if req_skill in res_skill or res_skill in req_skill:
-                    matched_required.append({
-                        'skill': req_skill,
-                        'proficiency': res_data['proficiency']
-                    })
-                    matched = True
-                    break
-            if not matched:
-                missing_required.append(req_skill)
-        
-        # Match preferred
-        matched_preferred = []
-        missing_preferred = []
-        
-        for pref_skill in preferred_skills:
-            matched = False
-            for res_skill in resume_skill_dict.keys():
-                if pref_skill in res_skill or res_skill in pref_skill:
-                    matched_preferred.append(pref_skill)
-                    matched = True
-                    break
-            if not matched:
-                missing_preferred.append(pref_skill)
-        
-        # Calculate scores
-        required_coverage = len(matched_required) / max(len(required_skills), 1) if required_skills else 1.0
-        preferred_coverage = len(matched_preferred) / max(len(preferred_skills), 1) if preferred_skills else 0.5
-        
-        overall_score = (required_coverage * 0.8) + (preferred_coverage * 0.2)
-        
+        # 2. Validate against AI to ensure they are technical skills
+        for cand in candidates:
+            if self.ai.is_technical_skill(cand, threshold=0.45):
+                required_skills.append(cand)
+                
         return {
-            'score': round(overall_score, 3),
-            'required_coverage': round(required_coverage * 100, 1),
-            'preferred_coverage': round(preferred_coverage * 100, 1),
-            'matched_required': matched_required,
-            'missing_required': missing_required,
-            'matched_preferred': matched_preferred,
-            'missing_preferred': missing_preferred,
-            'gap_severity': self._calculate_gap_severity(missing_required, required_skills)
+            'required_skills': list(set(required_skills)),
+            'job_title_features': job_title.lower().split()
         }
-    
-    def _calculate_gap_severity(self, missing: List[str], total: List[str]) -> str:
-        """Determine gap severity."""
-        if not total:
+
+    def _calculate_gap_severity(self, missing_count: int, total_count: int) -> str:
+        """Determine how severe the skill gap is."""
+        if total_count == 0:
             return "None"
         
-        gap_ratio = len(missing) / len(total)
+        ratio = missing_count / total_count
         
-        if gap_ratio == 0:
-            return "None - Perfect match!"
-        elif gap_ratio <= 0.2:
-            return "Minor - Easily addressable"
-        elif gap_ratio <= 0.4:
-            return "Moderate - Requires preparation"
-        elif gap_ratio <= 0.6:
-            return "Significant - Needs work"
+        if ratio == 0:
+            return "None - Perfect Match"
+        elif ratio <= 0.2:
+            return "Minor"
+        elif ratio <= 0.4:
+            return "Moderate"
+        elif ratio <= 0.6:
+            return "Significant"
         else:
-            return "Critical - May not be suitable"
-    
-    def calculate_experience_match(self, resume_exp: Dict, job_req: Dict) -> Dict:
-        """Calculate experience matching."""
-        required_years = job_req.get('experience_years', 0)
-        candidate_years = resume_exp.get('total_years', 0)
+            return "Critical"
+
+    def calculate_skill_match(self, resume_profile: Dict, job_req: Dict) -> Dict:
+        """
+        Matches Resume Skills (Flattened) vs Job Requirements using Semantic AI.
+        """
+        # Flatten resume skills into a single list
+        resume_skill_list = []
+        for cat, skills in resume_profile.get('skills_by_category', {}).items():
+            for s in skills:
+                resume_skill_list.append(s['skill'])
         
-        # Years match
-        if required_years == 0:
-            years_score = 0.9
-            analysis = "No specific requirement"
-        elif candidate_years >= required_years * 1.5:
-            years_score = 1.0
-            analysis = f"Significantly exceeds (+{candidate_years - required_years} years)"
-        elif candidate_years >= required_years:
-            years_score = 0.95
-            analysis = f"Meets requirement"
-        elif candidate_years >= required_years * 0.8:
-            years_score = 0.75
-            analysis = f"Slightly below (short by {required_years - candidate_years})"
-        else:
-            years_score = max(0.3, candidate_years / max(required_years, 1))
-            analysis = f"Below requirement"
+        matched = []
+        missing = []
+        ai_insights = []
         
-        # Seniority match
-        seniority_matrix = {
-            ('junior', 'junior'): (1.0, "Perfect match"),
-            ('junior', 'mid'): (0.6, "May need growth potential"),
-            ('junior', 'senior'): (0.2, "Significant gap"),
-            ('mid', 'junior'): (0.95, "Overqualified"),
-            ('mid', 'mid'): (1.0, "Perfect match"),
-            ('mid', 'senior'): (0.7, "Close to required"),
-            ('senior', 'junior'): (0.9, "Highly overqualified"),
-            ('senior', 'mid'): (0.95, "Overqualified"),
-            ('senior', 'senior'): (1.0, "Perfect match"),
-        }
+        required = job_req.get('required_skills', [])
         
-        candidate_level = resume_exp.get('seniority_level', 'mid')
-        required_level = job_req.get('seniority_level', 'mid')
-        seniority_score, seniority_analysis = seniority_matrix.get(
-            (candidate_level, required_level), (0.5, "Uncertain")
-        )
+        if not required:
+            return {
+                'score': 0, 
+                'required_coverage': 0.0,
+                'gap_severity': "Unknown",
+                'matched_required': [], 
+                'missing_required': [], 
+                'ai_insights': [],
+                'details': 'No clear requirements found'
+            }
+
+        for req in required:
+            # 1. Try Exact Match
+            if req in resume_skill_list:
+                matched.append({'skill': req, 'method': 'Exact'})
+                continue
+                
+            # 2. Try AI Semantic Match
+            best_match, score = self.ai.find_best_match(req, resume_skill_list, threshold=0.70)
+            
+            if best_match:
+                matched.append({'skill': req, 'method': 'AI', 'matched_with': best_match})
+                ai_insights.append(f"🧠 AI Inference: Job asked for '{req}', matched with your '{best_match}'")
+            else:
+                missing.append(req)
         
-        final_score = min(1.0, (years_score * 0.6) + (seniority_score * 0.4))
+        # Calculate scores
+        score = len(matched) / max(len(required), 1)
+        severity = self._calculate_gap_severity(len(missing), len(required))
         
         return {
-            'score': round(final_score, 3),
-            'years_analysis': analysis,
-            'seniority_analysis': seniority_analysis,
-            'candidate_years': candidate_years,
-            'required_years': required_years
+            'score': round(score, 3),
+            'required_coverage': round(score * 100, 1),
+            'gap_severity': severity,
+            'matched_required': matched,
+            'missing_required': missing,
+            'ai_insights': ai_insights,
+            'match_count': len(matched),
+            'total_reqs': len(required)
         }
-    
+
+    def calculate_experience_match(self, resume_years: int, job_desc: str) -> Dict:
+        """
+        Simple heuristic to determine experience match based on job description text.
+        """
+        import re
+        req_years_match = re.search(r'(\d+)\+?\s*years?', job_desc)
+        req_years = int(req_years_match.group(1)) if req_years_match else 0
+        
+        if req_years == 0:
+            return {'score': 1.0, 'years_analysis': "Not specified"}
+        
+        diff = resume_years - req_years
+        
+        if diff >= 0:
+            return {'score': 1.0, 'years_analysis': f"Meets requirement ({req_years}+ years)"}
+        elif diff >= -1:
+            return {'score': 0.8, 'years_analysis': f"Slightly below ({req_years} years required)"}
+        elif diff >= -3:
+            return {'score': 0.5, 'years_analysis': f"Below requirement ({req_years} years required)"}
+        else:
+            return {'score': 0.2, 'years_analysis': f"Significant gap ({req_years} years required)"}
+
+    def _generate_insights(self, skill_res: Dict) -> Dict:
+        """Generate human-readable insights for the report."""
+        strengths = []
+        talking_points = []
+        
+        # Generate strengths based on matches
+        if skill_res['matched_required']:
+            top_skills = [m['skill'] for m in skill_res['matched_required'][:3]]
+            strengths.append(f"Strong technical match for: {', '.join(top_skills)}")
+        else:
+            strengths.append("General profile alignment")
+            
+        if skill_res['ai_insights']:
+            strengths.append(f"AI identified {len(skill_res['ai_insights'])} transferable skills")
+
+        # Generate talking points
+        if skill_res['matched_required']:
+            skill = skill_res['matched_required'][0]['skill']
+            talking_points.append(f"Highlight your practical experience with {skill}")
+            
+        if skill_res['missing_required']:
+            missing = skill_res['missing_required'][0]
+            talking_points.append(f"Address how you plan to learn {missing} quickly")
+
+        return {
+            'strengths_to_highlight': strengths,
+            'talking_points': talking_points,
+            'gaps_to_address': skill_res['missing_required'],
+            'ai_matches': skill_res['ai_insights']
+        }
+
+    def _generate_action_items(self, skill_res: Dict) -> List[str]:
+        """Generate actionable advice."""
+        actions = []
+        
+        if skill_res['missing_required']:
+            top_missing = skill_res['missing_required'][:2]
+            actions.append(f"Prioritize learning: {', '.join(top_missing)}")
+        
+        if skill_res['score'] > 0.7:
+            actions.append("Tailor resume summary to match job keywords")
+        else:
+            actions.append("Focus on bridging critical skill gaps before applying")
+            
+        return actions
+
     def match_with_intelligent_insights(self, resume_profile: Dict, job: Dict) -> Dict:
-        """Comprehensive matching with insights."""
-        job_title = job.get('title', 'Unknown')
+        """Main matching function called by main.py"""
+        
+        # 1. Extract Requirements
         job_desc = job.get('description', '')
+        job_title = job.get('title', '')
+        job_reqs = self.extract_job_requirements(job_desc, job_title)
         
-        # Extract requirements
-        job_req = self.extract_job_requirements(job_desc, job_title)
+        # 2. Calculate Skill Match
+        skill_res = self.calculate_skill_match(resume_profile, job_reqs)
         
-        # Perform matching
-        skill_result = self.calculate_skill_match(
-            resume_profile.get('skills_by_category', {}),
-            job_req
-        )
+        # 3. Calculate Experience Match
+        resume_years = resume_profile.get('experience', {}).get('total_years', 0)
+        exp_res = self.calculate_experience_match(resume_years, job_desc)
         
-        exp_result = self.calculate_experience_match(
-            resume_profile.get('experience', {}),
-            job_req
-        )
+        # 4. Semantic Title Match 
+        career_level = resume_profile.get('career_level', 'Mid-Level')
+        candidate_title_proxy = f"{career_level} Developer"
+        title_sim = self.ai.get_similarity(job_title, candidate_title_proxy)
         
-        # Calculate final score
-        final_score = (
-            skill_result['score'] * self.weights['skills'] +
-            exp_result['score'] * self.weights['experience']
-        )
+        # 5. Final Weighted Score
+        final_score = (skill_res['score'] * 0.6) + (title_sim * 0.2) + (exp_res['score'] * 0.2)
         
-        # Determine quality
-        if final_score >= MATCH_THRESHOLDS['excellent']:
-            quality = "Excellent Match"
+        # 6. Determine Match Quality & Priority
+        if final_score >= 0.8:
+            match_quality = "Excellent"
             priority = "🔥 URGENT"
-            recommendation = "Apply immediately - Ideal candidate!"
-        elif final_score >= MATCH_THRESHOLDS['strong']:
-            quality = "Strong Match"
+            recommendation = "Apply immediately"
+        elif final_score >= 0.65:
+            match_quality = "Strong"
             priority = "✅ HIGH"
             recommendation = "Highly recommended"
-        elif final_score >= MATCH_THRESHOLDS['good']:
-            quality = "Good Match"
+        elif final_score >= 0.5:
+            match_quality = "Good"
             priority = "📝 MEDIUM"
             recommendation = "Good opportunity"
-        elif final_score >= MATCH_THRESHOLDS['fair']:
-            quality = "Fair Match"
-            priority = "⚠️ LOW"
-            recommendation = "Consider if interested"
         else:
-            quality = "Weak Match"
-            priority = "❌ SKIP"
-            recommendation = "Not recommended"
-        
-        # Generate insights
-        insights = self._generate_insights(skill_result, exp_result, resume_profile)
-        
+            match_quality = "Weak"
+            priority = "⚠️ LOW"
+            recommendation = "Focus on skills"
+            
+        # 7. Generate Insights (Added for Report Compatibility)
+        insights = self._generate_insights(skill_res)
+        action_items = self._generate_action_items(skill_res)
+
         return {
             'job_title': job_title,
             'company': job.get('company', 'Unknown'),
             'location': job.get('location', 'N/A'),
             'url': job.get('url', '#'),
             'source': job.get('source', 'Unknown'),
-            'overall_score': round(final_score, 3),
-            'match_quality': quality,
+            'overall_score': round(final_score, 2),
+            'match_quality': match_quality,
             'priority': priority,
             'recommendation': recommendation,
-            'skill_match': skill_result,
-            'experience_match': exp_result,
-            'job_requirements': job_req,
-            'insights': insights,
-            'action_items': self._generate_action_items(skill_result, exp_result)
+            'skill_match': skill_res,
+            'experience_match': exp_res,
+            'insights': insights,          # <--- UPDATED
+            'action_items': action_items   # <--- ADDED
         }
-    
-    def _generate_insights(self, skill_result: Dict, exp_result: Dict,
-                          resume_profile: Dict) -> Dict:
-        """Generate application insights."""
-        insights = {
-            'strengths_to_highlight': [],
-            'gaps_to_address': [],
-            'talking_points': [],
-            'cover_letter_tips': []
-        }
-        
-        # Strengths
-        if skill_result['required_coverage'] >= 80:
-            insights['strengths_to_highlight'].append(
-                f"Strong technical match ({skill_result['required_coverage']:.0f}% coverage)"
-            )
-        
-        if skill_result['matched_required']:
-            top_matched = [s['skill'] for s in skill_result['matched_required'][:3]]
-            insights['talking_points'].append(f"Emphasize: {', '.join(top_matched)}")
-        
-        # Gaps
-        if skill_result['missing_required']:
-            critical = skill_result['missing_required'][:3]
-            insights['gaps_to_address'].append(f"Address: {', '.join(critical)}")
-        
-        insights['cover_letter_tips'].append("Highlight relevant projects and quick learning")
-        
-        return insights
-    
-    def _generate_action_items(self, skill_result: Dict, exp_result: Dict) -> List[str]:
-        """Generate action items."""
-        actions = []
-        
-        if skill_result['missing_required']:
-            actions.append(f"🎯 Learn: {', '.join(skill_result['missing_required'][:2])}")
-        
-        if skill_result['score'] >= 0.7:
-            actions.append("✍️ Tailor resume to highlight matching skills")
-        
-        actions.append("🔗 Research company and recent projects")
-        
-        return actions
