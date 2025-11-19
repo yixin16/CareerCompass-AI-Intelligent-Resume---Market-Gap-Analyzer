@@ -1,0 +1,125 @@
+{
+  "metadata": {
+    "analysis_date": "2025-11-19T08:59:53.483962",
+    "total_jobs": 20,
+    "high_priority_count": 13
+  },
+  "resume_summary": {
+    "career_level": "Mid Level",
+    "years_experience": 4,
+    "total_skills": 30,
+    "expert_skills": 16,
+    "strengths": [
+      "Broad technical expertise across multiple domains",
+      "Deep specialization in ml ai"
+    ]
+  },
+  "top_5_matches": [
+    {
+      "job": "Senior Data Scientist at Cloud Nine Tech",
+      "score": 0.732,
+      "priority": "✅ HIGH",
+      "strengths": [
+        "Strong technical match (100% coverage)"
+      ],
+      "gaps": [],
+      "actions": [
+        "✍️ Tailor resume to highlight matching skills",
+        "🔗 Research company and recent projects"
+      ],
+      "url": "https://jobs.example.com/Machine-Learning-Engineer-2"
+    },
+    {
+      "job": "Data Scientist - Google Jobs at Various Companies (via Google)",
+      "score": 0.726,
+      "priority": "✅ HIGH",
+      "strengths": [
+        "Strong technical match (100% coverage)"
+      ],
+      "gaps": [],
+      "actions": [
+        "✍️ Tailor resume to highlight matching skills",
+        "🔗 Research company and recent projects"
+      ],
+      "url": "https://www.google.com/search?q=Data+Scientist+jobs+in+Malaysia&ibp=htl;jobs"
+    },
+    {
+      "job": "Machine Learning Engineer - Google Jobs at Various Companies (via Google)",
+      "score": 0.726,
+      "priority": "✅ HIGH",
+      "strengths": [
+        "Strong technical match (100% coverage)"
+      ],
+      "gaps": [],
+      "actions": [
+        "✍️ Tailor resume to highlight matching skills",
+        "🔗 Research company and recent projects"
+      ],
+      "url": "https://www.google.com/search?q=Machine+Learning+Engineer+jobs+in+Malaysia&ibp=htl;jobs"
+    },
+    {
+      "job": "Python Developer - Google Jobs at Various Companies (via Google)",
+      "score": 0.726,
+      "priority": "✅ HIGH",
+      "strengths": [
+        "Strong technical match (100% coverage)"
+      ],
+      "gaps": [],
+      "actions": [
+        "✍️ Tailor resume to highlight matching skills",
+        "🔗 Research company and recent projects"
+      ],
+      "url": "https://www.google.com/search?q=Python+Developer+jobs+in+Malaysia&ibp=htl;jobs"
+    },
+    {
+      "job": "Ai Engineer - Google Jobs at Various Companies (via Google)",
+      "score": 0.726,
+      "priority": "✅ HIGH",
+      "strengths": [
+        "Strong technical match (100% coverage)"
+      ],
+      "gaps": [],
+      "actions": [
+        "✍️ Tailor resume to highlight matching skills",
+        "🔗 Research company and recent projects"
+      ],
+      "url": "https://www.google.com/search?q=AI+Engineer+jobs+in+Malaysia&ibp=htl;jobs"
+    }
+  ],
+  "skill_gaps": {
+    "critical": [],
+    "high_priority": [
+      "tableau",
+      "data visualization",
+      "aws"
+    ],
+    "summary": "Focus on learning 0 critical skills to significantly improve your match."
+  },
+  "learning_plan": {
+    "total_skills": 3,
+    "estimated_time": "16 weeks (4+ months)",
+    "timeline": {
+      "Months 1-2": [
+        {
+          "skill": "tableau",
+          "duration": "4 weeks",
+          "intensity": "Medium"
+        }
+      ],
+      "Months 2-3": [
+        {
+          "skill": "data visualization",
+          "duration": "4 weeks",
+          "intensity": "Medium"
+        }
+      ],
+      "Months 3-5": [
+        {
+          "skill": "aws",
+          "duration": "8 weeks",
+          "intensity": "High"
+        }
+      ]
+    }
+  }
+}
