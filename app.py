@@ -25,7 +25,11 @@ try:
     from core.gap_analyzer import SkillGapAnalyzer
     from core.learning_roadmap import LearningRoadmapGenerator
     from core.cover_letter_generator import CoverLetterGenerator
+    from core.resume_tailor import tailor_resume
+    from core.agent_graph import init_agent_graph 
+    from core.interviewer import MockInterviewer
     from utils.visualizer import ReportVisualizer
+    from utils.pdf_generator import create_resume_pdf
 except ImportError as e:
     st.error(f"Error importing core modules: {e}")
     st.stop()
@@ -37,6 +41,20 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# --- SESSION STATE INITIALIZATION ---
+if 'analysis_complete' not in st.session_state:
+    st.session_state['analysis_complete'] = False
+if 'resume_profile' not in st.session_state:
+    st.session_state['resume_profile'] = None
+
+
+# NEW: Add these for the Mock Interviewer
+if 'interview_history' not in st.session_state:
+    st.session_state['interview_history'] = []
+
+if 'last_audio' not in st.session_state:
+    st.session_state['last_audio'] = None
 
 # --- CUSTOM CSS STYLING ---
 st.markdown("""
@@ -261,7 +279,13 @@ if st.session_state['analysis_complete']:
     st.markdown("###") # Spacer
 
     # Tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Profile & Market", "💼 Job Matches", "🎓 Learning Roadmap", "✍️ AI Cover Letter"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "📊 Profile & Market", 
+        "💼 Job Matches", 
+        "🎓 Learning Roadmap", 
+        "✍️ AI Cover Letter",
+        "🎤 Mock Interview"
+    ])
     
     # === TAB 1: PROFILE ===
     with tab1:
@@ -284,40 +308,64 @@ if st.session_state['analysis_complete']:
         st.subheader("Top Opportunities")
         
         if matches:
-            # Convert to DataFrame for display
+            # 1. Display DataFrame (Existing code)
             df_data = []
-            for m in matches:
-                # Safe access to nested keys
+            for i, m in enumerate(matches):
                 skill_match = m.get('skill_match', {})
                 missing = skill_match.get('missing_required', [])
-                
                 df_data.append({
+                    "ID": i, # Add ID for selection
                     "Score": f"{m.get('overall_score', 0):.0%}",
                     "Company": m.get('company', 'N/A'),
                     "Title": m.get('job_title', 'N/A'),
-                    "Match Quality": m.get('match_quality', 'N/A'),
-                    "Missing Skills": ", ".join(missing[:3]),
-                    "URL": m.get('url', '#')
+                    "Missing": ", ".join(missing[:3])
                 })
             
-            df = pd.DataFrame(df_data)
+            st.dataframe(pd.DataFrame(df_data), use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            # 2. Resume Tailoring Section
+            st.subheader("🎨 AI Resume Tailor")
             
-            # FIX 2: use_container_width deprecated -> width="stretch"
-            st.dataframe(
-                        df, 
-                        column_config={
-                            "URL": st.column_config.LinkColumn("Apply Link"),
-                            "Score": st.column_config.ProgressColumn(
-                                "Match Score", 
-                                format="%.0f%%", 
-                                min_value=0, 
-                                max_value=1
-                            ),
-                            "Company": st.column_config.TextColumn("Company"),
-                            "Missing Skills": st.column_config.ListColumn("Missing Skills") # Displays as tags
-                        },
-                        use_container_width=True, 
-                        hide_index=True
+            # Select Job
+            job_list = [f"{m['company']} - {m['job_title']}" for m in matches]
+            selected_idx = st.selectbox("Select a job to tailor your resume for:", range(len(job_list)), format_func=lambda x: job_list[x])
+            
+            if st.button("✨ Generate Tailored Resume PDF"):
+                target_job = matches[selected_idx]
+                
+                # API Key Check
+                active_key = groq_key if groq_key else os.environ.get("GROQ_API_KEY")
+                if not active_key:
+                    st.error("API Key required.")
+                    st.stop()
+
+                with st.status("Processing...", expanded=True) as status:
+                    status.write("📝 Rewriting resume content (Llama 3)...")
+                    
+                    # 1. Tailor Content
+                    tailored_data = tailor_resume(
+                        st.session_state['resume_profile'], 
+                        # Pass a string representation of the job
+                        f"{target_job['job_title']} at {target_job['company']}. Skills: {target_job.get('raw_text', '')}",
+                        active_key
+                    )
+                    
+                    status.write("📄 Rendering PDF...")
+                    
+                    # 2. Generate PDF
+                    pdf_bytes = create_resume_pdf(tailored_data)
+                    
+                    status.update(label="Done!", state="complete", expanded=False)
+
+                    # 3. Download Button
+                    st.success(f"Resume tailored for {target_job['company']}!")
+                    st.download_button(
+                        label="📥 Download Tailored Resume (.pdf)",
+                        data=pdf_bytes,
+                        file_name=f"Resume_{target_job['company']}.pdf",
+                        mime="application/pdf"
                     )
         else:
             st.warning("No matches found.")
@@ -351,30 +399,128 @@ if st.session_state['analysis_complete']:
             job_options = {f"{m['company']} - {m['job_title']}": m for m in matches[:10]}
             selected_job_name = st.selectbox("Select a Job to Apply for:", list(job_options.keys()))
             
-            if st.button("✨ Draft Cover Letter", type="primary"):
-                with st.spinner("Consulting LLM..."):
-                    generator = CoverLetterGenerator()
+            if st.button("✨ Draft Cover Letter (Agentic Mode)", type="primary"):
+        
+                # Check Logic
+                if not st.session_state.get('resume_text'):
+                    st.error("Please analyze your resume first.")
+                elif not groq_key and "GROQ_API_KEY" not in os.environ:
+                    st.error("Please provide a Groq API Key in the sidebar.")
+                else:
+                    # Get the key (either from input or env)
+                    active_key = groq_key if groq_key else os.environ.get("GROQ_API_KEY")
+                    
                     selected_job = job_options[selected_job_name]
                     
-                    # FIX 1 (CRITICAL): PASS THE PROFILE DICT, NOT TEXT STRING
-                    # We use st.session_state['resume_profile'] instead of ['resume_text']
-                    letter = generator.generate_cover_letter(
-                        st.session_state['resume_profile'], 
-                        selected_job
-                    )
-                    
-                    st.text_area("Generated Letter:", value=letter, height=500)
-                    
-                    # Download Button
-                    st.download_button(
-                        label="📥 Download .txt",
-                        data=letter,
-                        file_name=f"Cover_Letter_{selected_job.get('company','Company')}.txt",
-                        mime="text/plain"
-                    )
+                    with st.status("🤖 AI Agent Working...", expanded=True) as status:
+                        
+                        # 1. INITIALIZE THE GRAPH (The Fix)
+                        status.write("⚙️ Spinning up AI Agents...")
+                        try:
+                            agent_app = init_agent_graph(active_key)
+                        except Exception as e:
+                            st.error(f"Failed to initialize AI: {e}")
+                            st.stop()
+                        
+                        # 2. Setup Input State
+                        initial_state = {
+                            "company_name": selected_job.get('company', 'the company'),
+                            "job_title": selected_job.get('job_title', 'the role'),
+                            "job_description": "See matched skills context.", 
+                            "resume_text": st.session_state['resume_text'],
+                            "research_data": "",
+                            "cover_letter": ""
+                        }
+                        
+                        # 3. Run the Graph
+                        status.write("🕵️ Researching Company Culture & News...")
+                        result = agent_app.invoke(initial_state)
+                        
+                        status.write("✍️ Drafting Personalized Letter...")
+                        final_letter = result['cover_letter']
+                        
+                        status.update(label="✅ Draft Complete!", state="complete", expanded=False)
+                        
+                        # 4. Display Result
+                        st.subheader("Agent-Generated Letter")
+                        st.caption(f"Incorporating research on: {result['company_name']}")
+                        st.text_area("Edit your letter:", value=final_letter, height=500)
+                        
+                        st.download_button(
+                            label="📥 Download .txt",
+                            data=final_letter,
+                            file_name="Agentic_Cover_Letter.txt",
+                            mime="text/plain"
+                        )
         else:
             st.warning("Please run analysis to find jobs first.")
+    
+    # === TAB 5: MOCK INTERVIEW ===
+    with tab5:
+        st.subheader("🎤 Voice-Enabled Technical Interviewer")
+        st.caption("Practice answering questions out loud. The AI will listen, evaluate, and respond.")
 
+        # Ensure API Key
+        active_key = groq_key if groq_key else os.environ.get("GROQ_API_KEY")
+        if not active_key:
+            st.error("Please configure Groq API Key in sidebar first.")
+            st.stop()
+
+        interviewer = MockInterviewer(active_key)
+
+        # 1. Start/Reset Button
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("🔄 Start New Session"):
+                st.session_state['interview_history'] = []
+                # Initial Greeting
+                initial_msg = "Hello. I have reviewed your resume. Tell me about yourself and why you are a good fit for this role."
+                st.session_state['interview_history'].append({"role": "assistant", "content": initial_msg})
+                # Generate Audio for greeting
+                audio_path = interviewer.text_to_speech(initial_msg)
+                st.session_state['last_audio'] = audio_path
+                st.rerun()
+
+        # 2. Display Chat History
+        chat_container = st.container(height=400)
+        with chat_container:
+            for msg in st.session_state['interview_history']:
+                with st.chat_message(msg["role"]):
+                    st.write(msg["content"])
+
+        # 3. Play Audio of last AI response
+        if 'last_audio' in st.session_state and st.session_state['last_audio']:
+            st.audio(st.session_state['last_audio'], format="audio/mp3", autoplay=True)
+
+        # 4. Audio Input (The Mic)
+        # Note: st.audio_input is available in Streamlit 1.40+
+        audio_value = st.audio_input("Record your answer")
+
+        if audio_value:
+            # Process only if we haven't processed this specific audio yet
+            # (Streamlit reruns on interaction, so we need to prevent loops if desired, 
+            # but standard audio_input usually clears or handles state well)
+            
+            with st.spinner("👂 Listening & Transcribing..."):
+                # A. Transcribe
+                user_text = interviewer.transcribe_audio(audio_value)
+                
+                # Append User Message
+                st.session_state['interview_history'].append({"role": "user", "content": user_text})
+            
+            with st.spinner("🧠 Thinking & Speaking..."):
+                # B. Get AI Response
+                ai_text = interviewer.get_ai_response(st.session_state['interview_history'])
+                
+                # Append AI Message
+                st.session_state['interview_history'].append({"role": "assistant", "content": ai_text})
+                
+                # C. Convert to Speech
+                audio_path = interviewer.text_to_speech(ai_text)
+                st.session_state['last_audio'] = audio_path
+                
+                st.rerun()
+                
 elif not uploaded_file:
     # Sidebar hint handled in sidebar, showing empty state here
     pass
