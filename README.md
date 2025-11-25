@@ -13,9 +13,9 @@
 
 ## 📖 Overview
 
-**CareerCompass AI** is a next-generation career intelligence platform designed to bridge the gap between job seekers and market demands. 
+**CareerCompass AI** is an autonomous, agentic AI ecosystem designed to bridge the gap between job seekers and the live job market. Unlike standard resume parsers, this system employs **Agentic AI (LangGraph)** to actively research live job opportunities, analyze semantic fit, and provide multimodal coaching.
 
-Going beyond simple keyword matching, it utilizes **Agentic AI** to perform autonomous company research, **Multimodal AI** to conduct voice-based mock interviews, and **Semantic Embeddings** to quantify candidate-market fit with mathematical precision.
+It solves the "blind application" problem by quantifying the alignment between a candidate's skills and market demands, offering real-time resume tailoring and voice-based interview simulation.
 
 ![Dashboard Screenshot](assets/dashboard.png)
 
@@ -51,12 +51,12 @@ Going beyond simple keyword matching, it utilizes **Agentic AI** to perform auto
 | Component | Technology | Description |
 | :--- | :--- | :--- |
 | **Frontend** | Streamlit | Interactive web dashboard & Audio Input |
-| **Orchestration** | LangGraph | Stateful agentic workflows (Research -> Write) |
-| **LLM Inference** | Groq Cloud | Ultra-low latency API for **Llama 3.3** |
-| **Voice AI** | Whisper & Edge-TTS | Speech-to-Text and Text-to-Speech pipelines |
-| **NLP** | HuggingFace / BERT | Semantic similarity vectors |
+| **Agentic Orchestration** | LangGraph & LangChain| Stateful multi-agentic workflows (Research -> Write) |
+| **LLM Inference** | Groq Cloud (Llama-3.3-70b-Versatile) | Ultra-low latency API for **Llama 3.3** |
+| **Voice AI** | Whisper Large V3 Turbo (STT) & Edge-TTS | Speech-to-Text and Text-to-Speech pipelines |
+| **NLP & Embeddings** | Sentence-Transformers (all-MiniLM-L6-v2), BERT, FAISS (Vector Store) | Semantic similarity vectors |
 | **PDF Engine** | xhtml2pdf | HTML-to-PDF rendering for resume tailoring |
-| **Web Scraping** | DuckDuckGo Search | Live market data aggregation |
+| **Data Acquisition** | DuckDuckGo Search | Live market data aggregation |
 ---
 
 ## 📂 Project Structure
@@ -125,7 +125,7 @@ pip install -r requirements.txt
 ### 4. Set Up API Keys
 
 * Groq API Key is required for LLM features.
-* Get a free key at [console.groq.com](https://console.groq.com) and configure it in the sidebar.
+* Get a free key at [console.groq.com](https://console.groq.com) and configure it in the sidebar / or place in the .env file.
 
 ### 5. Run the Application
 

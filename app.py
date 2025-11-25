@@ -4,9 +4,13 @@ A Streamlit-based dashboard for the Resume Analyzer system.
 """
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 # 1. Suppress TensorFlow/Keras Warnings immediately
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+default_key = os.getenv("GROQ_API_KEY", "")
 
 import streamlit as st
 import pandas as pd
@@ -48,7 +52,9 @@ if 'analysis_complete' not in st.session_state:
 if 'resume_profile' not in st.session_state:
     st.session_state['resume_profile'] = None
 
-
+if not default_key and "GROQ_API_KEY" in st.secrets:
+    default_key = st.secrets["GROQ_API_KEY"]
+    
 # NEW: Add these for the Mock Interviewer
 if 'interview_history' not in st.session_state:
     st.session_state['interview_history'] = []
@@ -146,9 +152,28 @@ with st.sidebar:
     
     # 1. API Configuration
     with st.expander("⚙️ Configuration", expanded=True):
-        groq_key = st.text_input("Groq API Key", type="password", help="Required for AI Analysis")
+    # We set 'value' to default_key. 
+    # If the key exists in .env, it will be pre-filled (masked).
+    # If not, it will be empty.
+        groq_key = st.text_input(
+            "Groq API Key", 
+            value=default_key, 
+            type="password", 
+            help="Required for AI Analysis. Loaded from .env if available."
+        )
+
         if groq_key:
+            # Set the environment variable to whatever is in the box (auto or manual)
             os.environ["GROQ_API_KEY"] = groq_key
+            
+            # Optional: Show a subtle indicator of where the key came from
+            if groq_key == default_key and default_key != "":
+                st.caption("✅ Loaded from environment/config")
+            else:
+                st.caption("✅ Using manually entered key")
+                
+        else:
+            st.warning("⚠️ Please enter an API Key to proceed.")
 
     # 2. Resume Upload
     st.subheader("1. Upload Resume")
