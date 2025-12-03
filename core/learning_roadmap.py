@@ -1,13 +1,13 @@
 """
-Dynamic Learning Roadmap (GenAI Edition)
-Uses Large Language Models (Groq/Llama3) to act as a Career Coach.
-Generates specific time estimates, strategies, and project ideas for EACH skill.
+Dynamic Agentic Learning Roadmap
+Uses Llama 3.3 to act as a Personalized Career Coach.
+Generates context-aware strategies (Transfer Learning) based on existing skills.
 """
 
 import os
 import json
 import re
-from typing import Dict, List
+from typing import Dict, List, Any, Union
 from urllib.parse import quote_plus
 from core.semantic_matcher import SemanticMatcher
 from utils.logger import logger
@@ -21,141 +21,183 @@ except ImportError:
 
 class LearningRoadmapGenerator:
     def __init__(self, api_key: str = None):
-        self.semantic_ai = SemanticMatcher() # Local BERT (Fallback & Categorization)
-        
-        # Setup GenAI (Groq)
+        self.semantic_ai = SemanticMatcher() 
         self.api_key = api_key or os.getenv("GROQ_API_KEY")
         self.client = None
+        
+        # Use the high-reasoning model for curriculum design
+        self.model = "llama-3.3-70b-versatile" 
+        
         if GROQ_AVAILABLE and self.api_key:
             self.client = Groq(api_key=self.api_key)
 
-    def _ask_genai_for_advice(self, skill: str, category: str) -> Dict:
+    def _generate_search_links(self, skill: str, category: str) -> List[Dict]:
         """
-        Uses LLM to generate specific advice for a single skill.
+        Generates deterministic, high-quality resource links based on skill category.
+        This ensures the user always has valid links even if AI hallucinates URLs.
         """
-        if not self.client:
-            return None
-
-        prompt = f"""
-        Act as a Senior Technical Mentor. 
-        I need a learning plan for the skill: "{skill}" (Category: {category}).
+        q = quote_plus(skill)
+        links = [
+            {'name': 'Official Documentation', 'url': f"https://www.google.com/search?q={q}+documentation"},
+            {'name': 'YouTube Crash Course', 'url': f"https://www.youtube.com/results?search_query={q}+crash+course"}
+        ]
         
-        Provide a response in this EXACT format (no other text):
-        Complexity: [Low/Medium/High]
-        Time: [e.g. 2 weeks, 3 months]
-        Strategy: [One sentence strategic advice on how to learn this specific skill effectively]
-        Project: [A specific, cool capstone project idea using this skill]
+        if category == "Programming":
+            links.append({'name': 'LeetCode Problems', 'url': f"https://leetcode.com/problemset/?search={q}"})
+            links.append({'name': 'GitHub Projects', 'url': f"https://github.com/search?q={q}&type=repositories"})
+        elif category == "Data & AI":
+            links.append({'name': 'Kaggle Kernels', 'url': f"https://www.kaggle.com/search?q={q}"})
+            links.append({'name': 'Papers With Code', 'url': f"https://paperswithcode.com/search?q_meta=&q={q}"})
+        elif category == "Cloud & DevOps":
+            links.append({'name': 'AWS/Azure Workshops', 'url': f"https://www.google.com/search?q={q}+workshops"})
+            links.append({'name': 'Docker Hub Images', 'url': f"https://hub.docker.com/search?q={q}"})
+        elif category == "Web & UI":
+            links.append({'name': 'MDN Web Docs', 'url': f"https://developer.mozilla.org/en-US/search?q={q}"})
+            
+        return links
+
+    def _get_fallback_roadmap(self, missing_skills: List[str]) -> List[Dict]:
+        """Classic fallback if API is down or Key is missing."""
+        resources = []
+        for skill in missing_skills:
+            cat = self.semantic_ai.classify_category(skill)
+            resources.append({
+                'skill': skill,
+                'category': cat,
+                'difficulty': "Medium",
+                'estimated_time': "4 weeks",
+                'strategy_tip': "Focus on documentation and building a small hello-world project.",
+                'recommended_project': f"Build a simple CRUD application using {skill}",
+                'online_courses': self._generate_search_links(skill, cat)
+            })
+        return resources
+
+    def create_personalized_roadmap(self, missing_skills: List[str], resume_profile: Union[Dict, str]) -> Dict:
+        """
+        Agentic Workflow:
+        1. Analyzes User's Current Stack (from resume_profile).
+        2. Identifies gaps.
+        3. Generates a curriculum that leverages *Transfer Learning*.
+        """
+        if not missing_skills:
+            return {}
+
+        # --- SAFETY CHECK: Input Validation ---
+        # This prevents the 'AttributeError: str object has no attribute get'
+        current_skills = []
+        current_level = "Mid-Level"
+        experience_years = 0
+
+        if isinstance(resume_profile, dict):
+            # Safe extraction logic
+            current_level = resume_profile.get('career_level', 'Mid-Level')
+            exp_data = resume_profile.get('experience', {})
+            if isinstance(exp_data, dict):
+                experience_years = exp_data.get('total_years', 0)
+            
+            # Extract skills list
+            skills_data = resume_profile.get('skills_by_category', {})
+            if isinstance(skills_data, dict):
+                for cat, skills in skills_data.items():
+                    # Handle if skills is a list of strings OR list of dicts
+                    if isinstance(skills, list):
+                        for s in skills[:5]: # Take top 5 from each category to limit tokens
+                            if isinstance(s, dict): 
+                                current_skills.append(s.get('skill', ''))
+                            else: 
+                                current_skills.append(str(s))
+        else:
+            logger.warning(f"⚠️ Roadmap received invalid profile type: {type(resume_profile)}. Proceeding with generic plan.")
+        
+        # Limit to top 6 critical skills to keep context window focused
+        target_skills = missing_skills[:6]
+        
+        logger.info(f"  🧠 AI Architecting Roadmap for {len(target_skills)} skills...")
+
+        # If no API key, use fallback
+        if not self.client:
+            return {
+                'career_focus': "General Upskilling",
+                'detailed_resources': self._get_fallback_roadmap(target_skills),
+                'timeline': {}
+            }
+
+        # --- THE INTELLIGENT PROMPT ---
+        system_prompt = (
+            "You are an expert Technical Career Coach. "
+            "Create a learning roadmap for a candidate. "
+            "CRITICAL: Use TRANSFER LEARNING strategies. "
+            "Example: If they know Java, teach Python by comparing syntax, not from scratch. "
+            "Output strictly valid JSON."
+        )
+
+        user_prompt = f"""
+        **Candidate Profile:**
+        - Current Level: {current_level} ({experience_years} years exp)
+        - Known Skills: {', '.join(current_skills[:25])}
+        
+        **Target Skills to Learn:**
+        {', '.join(target_skills)}
+        
+        **Task:**
+        Create a JSON plan for EACH target skill.
+        
+        **JSON Format:**
+        {{
+            "roadmap": [
+                {{
+                    "skill": "Skill Name",
+                    "difficulty": "Low/Medium/High",
+                    "estimated_time": "e.g. 2 weeks",
+                    "strategy_tip": "Specific advice connecting their CURRENT skills to this NEW skill.",
+                    "recommended_project": "A specific project idea combining old and new skills."
+                }}
+            ]
+        }}
         """
 
         try:
             completion = self.client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model="llama3-8b-8192",
-                temperature=0.3, # Low temp for consistent formatting
-                max_tokens=150
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                model=self.model,
+                response_format={"type": "json_object"}, # Enforces JSON structure
+                temperature=0.4,
+                max_tokens=2048
             )
+            
             response_text = completion.choices[0].message.content
+            ai_data = json.loads(response_text)
+            ai_roadmap = ai_data.get('roadmap', [])
             
-            # Parse the response
-            data = {}
-            for line in response_text.split('\n'):
-                if "Complexity:" in line: data['diff'] = line.split(":")[1].strip()
-                if "Time:" in line: data['time'] = line.split(":")[1].strip()
-                if "Strategy:" in line: data['strategy'] = line.split(":")[1].strip()
-                if "Project:" in line: data['project'] = line.split(":")[1].strip()
+            # Post-process: Add static links to the AI's wisdom
+            final_resources = []
+            for item in ai_roadmap:
+                skill_name = item.get('skill', 'Unknown')
+                
+                # Double-check category locally for accurate linking
+                cat = self.semantic_ai.classify_category(skill_name)
+                
+                # Merge AI wisdom with Deterministic Links
+                item['category'] = cat
+                item['online_courses'] = self._generate_search_links(skill_name, cat)
+                final_resources.append(item)
             
-            # Validation
-            if all(k in data for k in ['diff', 'time', 'strategy', 'project']):
-                return data
+            # Sort by difficulty for the timeline
+            difficulty_order = {"Low": 1, "Medium": 2, "High": 3}
+            final_resources.sort(key=lambda x: difficulty_order.get(x.get('difficulty', 'Medium'), 2))
+
+            return {
+                'career_focus': f"Transition to {current_level}+ Role",
+                'detailed_resources': final_resources,
+                'total_skills': len(target_skills)
+            }
+
         except Exception as e:
-            logger.warning(f"  ⚠️ GenAI Roadmap Error for {skill}: {e}")
-        
-        return None
-
-    def _get_fallback_advice(self, skill: str, category: str) -> Dict:
-        """
-        Semantic / Heuristic fallback if GenAI is offline.
-        """
-        # Basic heuristics based on category
-        if category == "Programming":
+            logger.error(f"GenAI Roadmap Failed: {e}")
             return {
-                'diff': 'High', 'time': '8-10 weeks', 
-                'strategy': 'Focus on syntax first, then DSA.', 
-                'project': f'Build a CLI automation tool using {skill}.'
+                'career_focus': "Standard Path",
+                'detailed_resources': self._get_fallback_roadmap(target_skills)
             }
-        elif category == "Data & AI":
-            return {
-                'diff': 'High', 'time': '6-8 weeks',
-                'strategy': 'Apply immediately on datasets, do not just watch videos.',
-                'project': f'Analyze a Kaggle dataset using {skill}.'
-            }
-        else:
-            return {
-                'diff': 'Medium', 'time': '4 weeks',
-                'strategy': 'Read official docs and build a hello-world app.',
-                'project': f'Build a small component using {skill}.'
-            }
-
-    def create_personalized_roadmap(self, missing_skills: List[str], career_focus: str = "General") -> Dict:
-        """
-        Generates the roadmap using GenAI + Semantic Search.
-        """
-        logger.info(f"  🧠 AI Drafting Learning Roadmap for {len(missing_skills)} skills...")
-        
-        resources = []
-        
-        # Only process top 8 skills to save API time/limits if list is huge
-        priority_skills = missing_skills[:8]
-        
-        for skill in priority_skills:
-            # 1. Categorize using Local BERT (Fast & Accurate)
-            category = self.semantic_ai.classify_category(skill)
-            
-            # 2. Get Advice (Try GenAI first, then Fallback)
-            advice = self._ask_genai_for_advice(skill, category)
-            if not advice:
-                advice = self._get_fallback_advice(skill, category)
-            
-            # 3. Generate Standard Links (Reliable)
-            q = quote_plus(skill)
-            links = [
-                {'name': 'Coursera', 'url': f"https://www.coursera.org/search?query={q}"},
-                {'name': 'Udemy', 'url': f"https://www.udemy.com/courses/search/?q={q}"},
-                {'name': 'YouTube', 'url': f"https://www.youtube.com/results?search_query={q}+tutorial"}
-            ]
-            
-            # Add specific platform links
-            if category == "Programming":
-                links.insert(0, {'name': 'LeetCode', 'url': f"https://leetcode.com/problemset/?search={q}"})
-            elif category == "Data & AI":
-                links.insert(0, {'name': 'Kaggle', 'url': f"https://www.kaggle.com/search?q={q}"})
-
-            resources.append({
-                'skill': skill,
-                'category': category,
-                'difficulty': advice['diff'],
-                'estimated_time': advice['time'],
-                'strategy_tip': advice['strategy'],
-                'recommended_project': advice['project'],
-                'online_courses': links,
-                'documentation': [],
-                'practice_platforms': []
-            })
-            
-            if self.client:
-                logger.info(f"    ✓ GenAI generated plan for: {skill}")
-
-        # Timeline Grouping
-        timeline = {
-            "Phase 1 (Foundations)": [r['skill'] for r in resources if 'High' in r['difficulty']],
-            "Phase 2 (Application)": [r['skill'] for r in resources if 'Medium' in r['difficulty']],
-            "Phase 3 (Specialization)": [r['skill'] for r in resources if 'Low' in r['difficulty']]
-        }
-
-        return {
-            'career_focus': career_focus,
-            'detailed_resources': resources,
-            'total_skills': len(missing_skills),
-            'timeline': timeline,
-            'total_estimated_time': "Variable (Dependent on GenAI estimates)"
-        }

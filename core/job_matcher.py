@@ -1,9 +1,11 @@
 """
 Intelligent Job Matcher
 Uses Vector Similarity to match skills regardless of exact naming.
+Updated for Batch Processing (High Performance).
 """
 
-from typing import Dict, List
+import re
+from typing import Dict, List, Any
 from core.semantic_matcher import SemanticMatcher
 from utils.logger import logger
 
@@ -16,20 +18,42 @@ class IntelligentJobMatcher:
     def extract_job_requirements(self, job_desc: str, job_title: str) -> Dict:
         """
         Extracts requirements dynamically using AI validation.
+        UPDATED: Uses Batch Processing for speed.
         """
-        import re
-        # 1. Extract potential technical nouns (Capitalized words)
-        candidates = set(re.findall(r'\b[A-Z][a-zA-Z0-9+#]*\b', job_desc))
+        # 1. Extract potential technical nouns (Heuristic Regex)
+        # We look for Capitalized words or special tech terms like C++, .NET
+        candidates = set(re.findall(
+            r'\b[A-Z][a-zA-Z0-9+#]*\b|\b\.NET\b|\bNode\.js\b', 
+            job_desc
+        ))
         
-        required_skills = []
+        # Define stopwords to filter noise
+        stopwords = {
+            "The", "A", "To", "For", "Of", "In", "And", "With", "We", "You", "Our", "Are", "Is",
+            "Job", "Role", "Team", "Work", "Experience", "Skills", "Requirements", "Degree",
+            "Bachelor", "Master", "PhD", "Computer", "Science", "Engineering", "Apply",
+            "Responsibility", "Duties", "Qualifications", "Preferred", "Plus", "Strong",
+            "Knowledge", "Understanding", "Proficiency", "Years", "Location", "Remote",
+            "Global", "Local", "Business", "Client", "Service", "Solution"
+        }
         
-        # 2. Validate against AI to ensure they are technical skills
-        for cand in candidates:
-            if self.ai.is_technical_skill(cand, threshold=0.45):
-                required_skills.append(cand)
+        filtered_candidates = [
+            c for c in candidates 
+            if len(c) > 1 and c not in stopwords and not c.isdigit()
+        ]
+        
+        # 2. AI VALIDATION (The Fix: Using Batch Processing)
+        # Instead of calling .is_technical_skill() in a loop, we filter all at once.
+        if filtered_candidates:
+            required_skills = self.ai.batch_filter_skills(
+                filtered_candidates, 
+                threshold=0.45
+            )
+        else:
+            required_skills = []
                 
         return {
-            'required_skills': list(set(required_skills)),
+            'required_skills': required_skills,
             'job_title_features': job_title.lower().split()
         }
 
@@ -59,7 +83,11 @@ class IntelligentJobMatcher:
         resume_skill_list = []
         for cat, skills in resume_profile.get('skills_by_category', {}).items():
             for s in skills:
-                resume_skill_list.append(s['skill'])
+                # Handle both dict format and string format
+                if isinstance(s, dict):
+                    resume_skill_list.append(s.get('skill', ''))
+                else:
+                    resume_skill_list.append(str(s))
         
         matched = []
         missing = []
@@ -79,12 +107,15 @@ class IntelligentJobMatcher:
             }
 
         for req in required:
-            # 1. Try Exact Match
-            if req in resume_skill_list:
+            # 1. Try Exact Match (Fastest)
+            # Case-insensitive check
+            if any(req.lower() == r.lower() for r in resume_skill_list):
                 matched.append({'skill': req, 'method': 'Exact'})
                 continue
                 
-            # 2. Try AI Semantic Match
+            # 2. Try AI Semantic Match (Slower but Smarter)
+            # Note: Since find_best_match is a semantic operation, we keep it here.
+            # (It's 1-to-N comparison, which is fast enough for ~50 resume skills)
             best_match, score = self.ai.find_best_match(req, resume_skill_list, threshold=0.70)
             
             if best_match:
@@ -112,8 +143,7 @@ class IntelligentJobMatcher:
         """
         Simple heuristic to determine experience match based on job description text.
         """
-        import re
-        req_years_match = re.search(r'(\d+)\+?\s*years?', job_desc)
+        req_years_match = re.search(r'(\d+)\+?\s*years?', job_desc.lower())
         req_years = int(req_years_match.group(1)) if req_years_match else 0
         
         if req_years == 0:
@@ -182,13 +212,21 @@ class IntelligentJobMatcher:
         # 1. Extract Requirements
         job_desc = job.get('description', '')
         job_title = job.get('title', '')
+        
+        # The key fix is inside this method call
         job_reqs = self.extract_job_requirements(job_desc, job_title)
         
         # 2. Calculate Skill Match
         skill_res = self.calculate_skill_match(resume_profile, job_reqs)
         
         # 3. Calculate Experience Match
-        resume_years = resume_profile.get('experience', {}).get('total_years', 0)
+        # Safe get for nested dicts
+        exp_data = resume_profile.get('experience', {})
+        if isinstance(exp_data, dict):
+            resume_years = exp_data.get('total_years', 0)
+        else:
+            resume_years = 0 # Fallback
+            
         exp_res = self.calculate_experience_match(resume_years, job_desc)
         
         # 4. Semantic Title Match 
@@ -217,7 +255,7 @@ class IntelligentJobMatcher:
             priority = "⚠️ LOW"
             recommendation = "Focus on skills"
             
-        # 7. Generate Insights (Added for Report Compatibility)
+        # 7. Generate Insights
         insights = self._generate_insights(skill_res)
         action_items = self._generate_action_items(skill_res)
 
@@ -233,6 +271,8 @@ class IntelligentJobMatcher:
             'recommendation': recommendation,
             'skill_match': skill_res,
             'experience_match': exp_res,
-            'insights': insights,          # <--- UPDATED
-            'action_items': action_items   # <--- ADDED
+            'insights': insights,
+            'action_items': action_items,
+            # IMPORTANT: Pass raw data for the Resume Tailor feature
+            'raw_text': job_desc 
         }

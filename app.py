@@ -258,7 +258,10 @@ if run_btn:
                 skills_to_learn = gaps.get('critical_gaps', [])[:5] + gaps.get('medium_priority_gaps', [])[:3]
                 
                 roadmap_gen = LearningRoadmapGenerator()
-                roadmap = roadmap_gen.create_personalized_roadmap(skills_to_learn, profile.get('career_level', 'Mid-Level'))
+                roadmap = roadmap_gen.create_personalized_roadmap(
+                            missing_skills=skills_to_learn, 
+                            resume_profile=profile
+                        )
                 st.session_state['roadmap'] = roadmap
                 
                 # --- VISUALS ---
@@ -482,70 +485,115 @@ if st.session_state['analysis_complete']:
     
     # === TAB 5: MOCK INTERVIEW ===
     with tab5:
-        st.subheader("🎤 Voice-Enabled Technical Interviewer")
-        st.caption("Practice answering questions out loud. The AI will listen, evaluate, and respond.")
-
-        # Ensure API Key
+        st.header("🎤 AI Mock Interviewer")
+        
         active_key = groq_key if groq_key else os.environ.get("GROQ_API_KEY")
         if not active_key:
-            st.error("Please configure Groq API Key in sidebar first.")
-            st.stop()
+            st.warning("⚠️ Please enter your Groq API Key.")
+            st.stop() 
 
-        interviewer = MockInterviewer(active_key)
+        # State Management
+        if 'interview_active' not in st.session_state:
+            st.session_state.interview_active = False
+        if 'interview_history' not in st.session_state:
+            st.session_state.interview_history = []
+        if 'last_processed_audio' not in st.session_state:
+            st.session_state.last_processed_audio = None
 
-        # 1. Start/Reset Button
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            if st.button("🔄 Start New Session"):
-                st.session_state['interview_history'] = []
-                # Initial Greeting
-                initial_msg = "Hello. I have reviewed your resume. Tell me about yourself and why you are a good fit for this role."
-                st.session_state['interview_history'].append({"role": "assistant", "content": initial_msg})
-                # Generate Audio for greeting
-                audio_path = interviewer.text_to_speech(initial_msg)
-                st.session_state['last_audio'] = audio_path
+        # --- SCENE 1: START SCREEN ---
+        if not st.session_state.interview_active:
+            st.info("💡 Tip: After the AI asks a question, you can click 'View Sample Answer' for guidance.")
+            if st.button("🚀 Start Interview Session", type="primary"):
+                st.session_state.interview_active = True
+                
+                # Initial Greeting (Manual construction)
+                greeting_text = "Hello! I've reviewed your profile. Tell me about yourself."
+                greeting_sample = "Focus on your current role, 1-2 major achievements, and why you want this specific job. Keep it under 2 minutes."
+                
+                # Save structured message
+                st.session_state.interview_history = [{
+                    "role": "assistant", 
+                    "content": greeting_text,
+                    "sample_answer": greeting_sample 
+                }]
                 st.rerun()
 
-        # 2. Display Chat History
-        chat_container = st.container(height=400)
-        with chat_container:
-            for msg in st.session_state['interview_history']:
-                with st.chat_message(msg["role"]):
-                    st.write(msg["content"])
+        # --- SCENE 2: ACTIVE INTERVIEW ---
+        else:
+            try:
+                interviewer = MockInterviewer(api_key=active_key)
+            except Exception as e:
+                st.error(f"Error: {e}")
+                st.stop()
 
-        # 3. Play Audio of last AI response
-        if 'last_audio' in st.session_state and st.session_state['last_audio']:
-            st.audio(st.session_state['last_audio'], format="audio/mp3", autoplay=True)
+            # Toolbar
+            col_a, col_b = st.columns([4, 1])
+            with col_a: st.caption("🔴 Live Session Active")
+            with col_b: 
+                if st.button("End Session"):
+                    st.session_state.interview_active = False
+                    st.session_state.interview_history = []
+                    st.session_state.last_processed_audio = None
+                    st.rerun()
 
-        # 4. Audio Input (The Mic)
-        # Note: st.audio_input is available in Streamlit 1.40+
-        audio_value = st.audio_input("Record your answer")
+            # --- DISPLAY CHAT HISTORY ---
+            chat_container = st.container()
+            with chat_container:
+                for message in st.session_state.interview_history:
+                    with st.chat_message(message["role"]):
+                        st.write(message["content"])
+                        
+                        # ✅ NEW: Show Sample Answer Button (Only for Assistant messages)
+                        if message["role"] == "assistant" and "sample_answer" in message:
+                            with st.expander("💡 View Sample Answer / Hint"):
+                                st.info(message["sample_answer"])
 
-        if audio_value:
-            # Process only if we haven't processed this specific audio yet
-            # (Streamlit reruns on interaction, so we need to prevent loops if desired, 
-            # but standard audio_input usually clears or handles state well)
-            
-            with st.spinner("👂 Listening & Transcribing..."):
-                # A. Transcribe
-                user_text = interviewer.transcribe_audio(audio_value)
-                
-                # Append User Message
-                st.session_state['interview_history'].append({"role": "user", "content": user_text})
-            
-            with st.spinner("🧠 Thinking & Speaking..."):
-                # B. Get AI Response
-                ai_text = interviewer.get_ai_response(st.session_state['interview_history'])
-                
-                # Append AI Message
-                st.session_state['interview_history'].append({"role": "assistant", "content": ai_text})
-                
-                # C. Convert to Speech
-                audio_path = interviewer.text_to_speech(ai_text)
-                st.session_state['last_audio'] = audio_path
-                
-                st.rerun()
+            # --- AUDIO INPUT ---
+            if hasattr(st, 'audio_input'):
+                audio_value = st.audio_input("Record your answer")
+            else:
+                st.error("Please upgrade Streamlit.")
+                st.stop()
+
+            # --- PROCESS INPUT ---
+            if audio_value is not None and audio_value != st.session_state.last_processed_audio:
+                with st.spinner("Listening & Analyzing..."):
+                    st.session_state.last_processed_audio = audio_value
+                    
+                    # 1. Transcribe
+                    user_text = interviewer.transcribe_audio(audio_value)
+                    st.session_state.interview_history.append({"role": "user", "content": user_text})
+                    
+                    # 2. Get AI Response (Returns Dict now)
+                    resume_data = st.session_state.get('resume_profile', {})
+                    target_role = resume_data.get('career_level', 'General') + " Role"
+                    resume_context = st.session_state.get('resume_text', '')[:1000]
+                    
+                    ai_response_dict = interviewer.get_ai_response(
+                        st.session_state.interview_history, 
+                        target_role=target_role, 
+                        resume_context=resume_context
+                    )
+                    
+                    # 3. Save to History (Question + Sample Answer)
+                    st.session_state.interview_history.append({
+                        "role": "assistant", 
+                        "content": ai_response_dict['question'],
+                        "sample_answer": ai_response_dict['sample_answer']
+                    })
+                    
+                    # 4. Speak ONLY the Question text
+                    audio_path = interviewer.text_to_speech(ai_response_dict['question'])
+                    
+                    st.rerun()
+
+            # --- AUTO-PLAY ---
+            if st.session_state.interview_history:
+                last_msg = st.session_state.interview_history[-1]
+                if last_msg["role"] == "assistant":
+                    if audio_value == st.session_state.last_processed_audio:
+                        if os.path.exists("temp_response.mp3"):
+                            st.audio("temp_response.mp3", format="audio/mp3", autoplay=True)
                 
 elif not uploaded_file:
-    # Sidebar hint handled in sidebar, showing empty state here
     pass

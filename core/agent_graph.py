@@ -1,4 +1,3 @@
-import os
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
@@ -26,7 +25,7 @@ def init_agent_graph(api_key: str):
     search_tool = DuckDuckGoSearchRun()
     llm = ChatGroq(
         model_name="llama-3.3-70b-versatile",  # Updated model
-        temperature=0.6, 
+        temperature=0.7, 
         api_key=api_key
     )
 
