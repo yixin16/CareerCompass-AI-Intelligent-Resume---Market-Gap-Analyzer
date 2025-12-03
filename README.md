@@ -1,6 +1,6 @@
 # 🧭 Career Compass AI: Intelligent Resume & Market gap Analyzer
 
-**Intelligent Resume, Market Gap Analyzer & Agentic Career Coach**
+**Agentic Career Coach | Real-Time Voice Interviewer | Semantic Market Analyzer**
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.40+-ff4b4b.svg)
@@ -13,36 +13,65 @@
 
 ## 📖 Overview
 
-**CareerCompass AI** is an autonomous, agentic AI ecosystem designed to bridge the gap between job seekers and the live job market. Unlike standard resume parsers, this system employs **Agentic AI (LangGraph)** to actively research live job opportunities, analyze semantic fit, and provide multimodal coaching.
+**CareerCompass AI** is an autonomous, multimodal AI ecosystem designed to bridge the gap between job seekers and the live job market. Unlike standard resume parsers, this system employs **Agentic AI** and **Vector Embeddings** to actively research live job opportunities, quantify skill gaps semantically, and provide real-time voice coaching.
 
-It solves the "blind application" problem by quantifying the alignment between a candidate's skills and market demands, offering real-time resume tailoring and voice-based interview simulation.
+It solves the "blind application" problem by analyzing the mathematical distance between a candidate's profile and market demands, offering **Transfer Learning** roadmaps and **Voice-Enabled interview** simulations.
 
 ![Dashboard Screenshot](assets/dashboard.png)
 
 ---
 
-## 🚀 Key Features
+## 🏗️ System Architecture
+The application is built on a modular, event-driven architecture optimized for high throughput and low latency.
+graph TD
+    subgraph "Data Ingestion"
+    A[User Resume (PDF)] -->|OCR & Regex| B[Structured Profile]
+    B -->|Batch Embedding| C[Vector Store (FAISS)]
+    D[Live Job Market] -->|Scraper| E[Job Listings]
+    E -->|Batch Embedding| C
+    end
 
-### 🧠 1. Semantic Resume Analysis
-*   Parses PDF/DOCX resumes to extract structured data (Skills, Experience, Education).
-*   Utilizes **BERT** and **Sentence-Transformers** to create vector embeddings, allowing for deep semantic understanding of a candidate's profile.
+    subgraph "Intelligence Engine"
+    C -->|Cosine Similarity| F[Gap Analysis Engine]
+    F -->|Clustering| G[Critical Skill Gaps]
+    G -->|Llama 3.3 Agent| H[Transfer Learning Roadmap]
+    end
 
-### 🌍 2. Real-Time Market Scanner
-*   Aggregates live job listings from LinkedIn, Indeed, and other sources.
+    subgraph "Real-Time Interaction"
+    I[Audio Input] -->|Whisper V3 Turbo| J[Transcriber]
+    J -->|Llama 3.3 Json Mode| K[Interviewer Logic]
+    K -->|JSON| L[Question + Sample Answer]
+    L -->|EdgeTTS| M[Audio Output]
+    end
+
+
+## 🚀 Key Features & Engineering Decisions
+
+### 1. High-Performance Semantic Analysis
+*   **Batch Vector Processing:** Instead of iterating through skills one-by-one, the system uses matrix multiplication to validate and categorize hundreds of skills instantly using sentence-transformers/all-MiniLM-L6-v2.
+*   **Context-Aware Parser:** Extracts skills, experience timeline (handling gaps and overlaps), and contact info using a hybrid of Regex heuristics and BERT-based validation.
+
+### 2. Smart Gap Analyzer
 *   Implements **DuckDuckGo** search dorking with rotating headers to build a resilient, anti-bot resistant scraping pipeline.
+*   **Severity Scoring:** Calculates a priority score based on Frequency × Domain Weight (e.g., missing a core Language is weighted higher than missing a soft skill).
+*   **Market Penetration:** Calculates the exact percentage of jobs requiring a specific missing skill.
 
-### 🕵️ 3. Agentic Cover Letter Writer (LangGraph)
-*   **Autonomous Research:** An AI agent actively browses the web to find a company's latest news, values, and mission statements *before* writing.
-*   **Contextual Drafting:** Generates hyper-personalized cover letters that connect the candidate's specific achievements to the company's real-world context.
+### 3. Agentic Learning Roadmap (Transfer Learning)
+*   **Contextual Curriculum:** Instead of generic advice, the AI analyzes the user's current stack to generate Transfer Learning strategies (e.g., "Since you know Java, learn Python by focusing on these syntax differences...").
+*   **Hybrid Resources:** Combines AI-generated project ideas with deterministic, high-quality links (LeetCode, Kaggle, Official Docs) to ensure reliability.
 
-### 🎨 4. AI Resume Tailor (PDF Generator)
-*   **Smart Rewriting:** Rephrases resume bullet points to strictly align with specific Job Description keywords using Llama 3.
-*   **Auto-Formatting:** Instantly renders the tailored content into a clean, ATS-friendly **PDF** using a professional template.
+### 4. Real-Time Mock Interviewer
+*   **Latency Optimized:** Utilizes Groq LPU (Language Processing Unit) to achieve <1s response times, creating a fluid conversation.
+*   **Multimodal Pipeline** Instantly renders the tailored content into a clean, ATS-friendly **PDF** using a professional template.
+      * **Input:** Whisper-Large-V3-Turbo for instant speech-to-text.
+      * **Logic:** Llama-3.3-70b generating structured JSON (Feedback + Question + Sample Answer).
+      * **Output:** EdgeTTS for neural voice synthesis.
+*  **Guided Coaching:** The UI displays a hidden "Sample Answer" for every question, allowing users to compare their response with a Senior Engineer's ideal answer.
 
-### 🎤 5. Voice-Enabled Mock Interviewer
-*   **Speech-to-Text:** Transcribes candidate answers in real-time using **Distil-Whisper**.
-*   **AI Evaluation:** Llama 3 acts as a senior technical interviewer, analyzing the answer and generating follow-up questions.
-*   **Text-to-Speech:** Speaks back to the candidate using high-quality **Edge-TTS** for an immersive practice experience.
+### 🎤 5. AI Resume Tailor
+*   **STAR Method Injection:** Rewrites experience bullet points to follow the **S**ituation, **T**ask, **A**ction, **R**esult format using generative AI.
+*   **ATS Keyword Optimization:** Dynamically re-ranks skill lists to place job-specific keywords at the top for higher ATS scoring.
+
 
 ---
 
@@ -50,11 +79,12 @@ It solves the "blind application" problem by quantifying the alignment between a
 
 | Component | Technology | Description |
 | :--- | :--- | :--- |
-| **Frontend** | Streamlit | Interactive web dashboard & Audio Input |
-| **Agentic Orchestration** | LangGraph & LangChain| Stateful multi-agentic workflows (Research -> Write) |
-| **LLM Inference** | Groq Cloud (Llama-3.3-70b-Versatile) | Ultra-low latency API for **Llama 3.3** |
-| **Voice AI** | Whisper Large V3 Turbo (STT) & Edge-TTS | Speech-to-Text and Text-to-Speech pipelines |
-| **NLP & Embeddings** | Sentence-Transformers (all-MiniLM-L6-v2), BERT, FAISS (Vector Store) | Semantic similarity vectors |
+| **LLM Inference** | Groq (Llama 3.3 70B) | Delivers 300+ tokens/sec, essential for real-time voice interaction. |
+| **Voice (STT)** | Whisper Large V3 Turbo | 8x faster than standard Whisper with comparable accuracy. |
+| **Voice (TTS)** | Edge-TTS | High-quality neural voices without the cost/latency of ElevenLabs. |
+| **Embeddings** | Sentence-Transformers | Local inference for free, high-speed semantic similarity matching. |
+| **Backend/UI** | Streamlit | Rapid prototyping with session state management for chat history. |
+| **Orchestration** | LangChain | Manages prompt templates and structured JSON parsing. |
 | **PDF Engine** | xhtml2pdf | HTML-to-PDF rendering for resume tailoring |
 | **Data Acquisition** | DuckDuckGo Search | Live market data aggregation |
 ---
@@ -66,13 +96,13 @@ CareerCompass-AI/
 ├── app.py                   # Main Streamlit application
 ├── core/
 │   ├── agent_graph.py  # LangGraph Agent (Research + Writing)
-│   ├── interviewer.py  # Voice Interview Logic (Whisper + TTS)
-│   ├── resume_tailor.py  # Resume Rewriting logicc
-│   ├── cover_letter_generator.py
+│   ├── interviewer.py  # Voice Pipeline
+│   ├── resume_tailor.py  # ATS Optimization Agent
+│   ├── cover_letter_generator.py   # Tone-aware Writer
 │   ├── gap_analyzer.py
 │   ├── job_matcher.py
 │   ├── job_scraper.py
-│   ├── learning_roadmap.py
+│   ├── learning_roadmap.py   # Transfer Learning Agent
 │   ├── resume_analyzer.py
 │   ├── resume_parser.py
 │   └── semantic_matcher.py
@@ -100,8 +130,8 @@ CareerCompass-AI/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/CareerCompass-AI.git
-cd CareerCompass-AI
+git clone https://github.com/yixin16/CareerCompass-AI-Intelligent-Resume---Market-Gap-Analyzer.git
+cd CareerCompass-AI-Intelligent-Resume---Market-Gap-Analyzer
 ```
 
 ### 2. Create Virtual Environment
@@ -135,28 +165,23 @@ streamlit run app.py
 
 ---
 
-## 📸 Usage Guide
+## Usage Guide
 
-1. **Upload Profile:** Drag & drop your PDF resume in the sidebar.
-2. **Set Preferences:** Enter target role and location.
-3. **Run Analysis:** Click **Run Analysis** to parse data and scrape live job listings.
-4. **View Insights:**
-
-   * **Market Tab:** Compare your skills with market trends via radar charts.
-   * **Matches Tab:** View ranked job opportunities with match scores.
-   * **Roadmap Tab:** Generate a step-by-step learning plan for missing skills.
-   * **Cover Letter Tab:** Select a job and let AI draft a personalized cover letter.
-5. **Mock Interview** Go to the "Mock Interview" tab, click "Start Session," and use your microphone to practice technical questions.
+1. **Resume Analysis:** Upload a PDF. The system extracts skills using batch vector processing.
+2. **Market Scan:** Enter a job title (e.g., "Data Scientist"). The system scrapes live jobs and performs 3. semantic matching.
+4. **Gap Analysis:** View the "Critical Gaps" chart to see which skills you are missing that are highly weighted in the current market.
+5. **Roadmap:** Generate a study plan. The AI will look at your existing skills and tell you exactly how to bridge the gap.
+6. **Mock Interview:** Switch to the Interview tab. Click "Start Session," speak into your microphone, and receive immediate technical questions and sample answers.
 
 ---
 
 ## 🔮 Future Roadmap
 
-* **Dockerization:** Containerize the application for easy deployment on cloud platforms (AWS/Azure).
-* **Database Integration:** Add PostgreSQL/SQLite to save user profiles and chat history persistently.
-* **Video Analysis:** Analyze user's facial expressions during mock interviews using OpenCV.
+* **Video Analysis:** Integrate OpenCV to analyze facial expressions and confidence during the mock interview.
+* **Dockerization:** Containerize the application for easy deployment on AWS/Azure.
+* **Database Integration:** Implement PostgreSQL to persist user progress and chat history.
 
 ---
 
 
-*This project was developed as a comprehensive portfolio showcase demonstrating expertise in Full-Stack GenAI, Agentic Workflows, NLP, and System Architecture.*
+*This project was developed as a comprehensive portfolio showcase demonstrating expertise in Full-Stack GenAI, RAG Systems, Agentic Workflows, and Low-Latency Architecture.*
