@@ -13,9 +13,16 @@
 
 ## 📖 Overview
 
-**CareerCompass AI** is an autonomous, multimodal AI ecosystem designed to bridge the gap between job seekers and the live job market. Unlike standard resume parsers, this system employs **Agentic AI** and **Vector Embeddings** to actively research live job opportunities, quantify skill gaps semantically, and provide real-time voice coaching.
+**CareerCompass AI** is an **autonomous, multimodal AI career intelligence system** that deeply analyzes a user’s resume, compares it against live job-market data using vector semantics, identifies critical skill gaps, and provides a personalized learning roadmap + mock interview experience + ATS-optimized resume output.
 
-It solves the "blind application" problem by analyzing the mathematical distance between a candidate's profile and market demands, offering **Transfer Learning** roadmaps and **Voice-Enabled interview** simulations.
+Instead of offering generic advice, CareerCompass AI combines:
+1. Agentic Reasoning (LangGraph)
+2. High-dimensional vector matching (FAISS + SentenceTransformers)
+3. Live market scraping + semantic clustering
+4. Voice-based mock interviewing
+5. ATS optimization + PDF generation
+
+This system solves the common “blind job-application” problem by mathematically computing the semantic distance between your skills and real market demand—then teaching you exactly how to bridge the gap.
 
 ![Dashboard Screenshot](assets/dashboard.png)
 
