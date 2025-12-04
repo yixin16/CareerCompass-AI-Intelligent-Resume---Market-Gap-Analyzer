@@ -449,7 +449,7 @@ CareerCompass-AI/
 
 
 **Mock Interview Session**
-![Your Personalized Mock Interviewer](assets/interviewer.png.png)
+![Your Personalized Mock Interviewer](assets/interviewer.png)
 ```
 
 ```
