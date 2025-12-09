@@ -8,7 +8,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.40+-ff4b4b.svg?style=for-the-badge&logo=streamlit&logoColor=white)
 ![Llama](https://img.shields.io/badge/Llama%203.3-Groq-purple?style=for-the-badge)
 ![LangGraph](https://img.shields.io/badge/Agentic-LangGraph-orange?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)
+
 
 **[Features](#-features) • [Demo](#-demo) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Documentation](#-documentation)**
 
