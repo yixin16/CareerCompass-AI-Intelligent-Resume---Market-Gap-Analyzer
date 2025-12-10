@@ -504,7 +504,12 @@ CareerCompass-AI/
 ![AI Cover Letter Writer](assets/letter.png)
 
 ### Context-Aware Mock Interviewer
-![Your Personalized Mock Interviewer](assets/interviewer.png)
+![Your Personalized Mock Interviewer: Target position & Interview Settings](assets/interviewer.png)
+![What to Expect during Interview??](assets/interviewer_2.png)
+
+
+![Start Ypur Interview Now!!](assets/start_interview.png)
+
 
 **Features:**
 - ✅ 4 difficulty levels (Entry → Staff)
