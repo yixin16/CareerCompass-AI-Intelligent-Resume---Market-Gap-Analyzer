@@ -483,9 +483,10 @@ if st.session_state['analysis_complete']:
         else:
             st.warning("Please run analysis to find jobs first.")
     
-    # === TAB 5: MOCK INTERVIEW ===
+    # === TAB 5: ENHANCED MOCK INTERVIEW ===
     with tab5:
         st.header("🎤 AI Mock Interviewer")
+        st.caption("Realistic, role-specific interview simulation with customizable focus and difficulty")
         
         active_key = groq_key if groq_key else os.environ.get("GROQ_API_KEY")
         if not active_key:
@@ -493,107 +494,393 @@ if st.session_state['analysis_complete']:
             st.stop() 
 
         # State Management
-        if 'interview_active' not in st.session_state:
+        if 'interview_active' not in st.session_state: 
             st.session_state.interview_active = False
-        if 'interview_history' not in st.session_state:
+        if 'interview_history' not in st.session_state: 
             st.session_state.interview_history = []
-        if 'last_processed_audio' not in st.session_state:
+        if 'last_processed_audio' not in st.session_state: 
             st.session_state.last_processed_audio = None
+        if 'current_audio_path' not in st.session_state: 
+            st.session_state.current_audio_path = None
+        if 'selected_interview_job' not in st.session_state:
+            st.session_state.selected_interview_job = None
+        if 'interview_config' not in st.session_state:
+            st.session_state.interview_config = {
+                'focus': 'balanced',
+                'difficulty': 'medium'
+            }
+        
+        try:
+            interviewer = MockInterviewer(api_key=active_key)
+        except Exception as e:
+            st.error(f"Init Error: {e}")
+            st.stop()
 
-        # --- SCENE 1: START SCREEN ---
+        # Helper: Cleanup
+        def cleanup_old_audio():
+            if st.session_state.current_audio_path and os.path.exists(st.session_state.current_audio_path):
+                try:
+                    os.remove(st.session_state.current_audio_path)
+                except:
+                    pass
+
+        # --- SCENE 1: CONFIGURATION & START ---
         if not st.session_state.interview_active:
-            st.info("💡 Tip: After the AI asks a question, you can click 'View Sample Answer' for guidance.")
-            if st.button("🚀 Start Interview Session", type="primary"):
+            
+            # === JOB SELECTION ===
+            st.subheader("📋 Step 1: Select Target Position")
+            
+            if matches and len(matches) > 0:
+                # Create job options
+                job_options = {}
+                for idx, m in enumerate(matches[:10]):
+                    job_label = f"{m.get('company', 'Unknown')} - {m.get('job_title', 'Position')}"
+                    match_score = m.get('overall_score', 0)
+                    job_options[job_label] = {
+                        'company': m.get('company', ''),
+                        'title': m.get('job_title', ''),
+                        'description': m.get('raw_text', '')[:2000],
+                        'score': match_score
+                    }
+                
+                # Add generic option
+                job_options["🎯 AI Engineer (Generic Interview)"] = {
+                    'company': '',
+                    'title': 'AI Engineer',
+                    'description': 'General AI/ML engineering interview',
+                    'score': 0
+                }
+                
+                selected_job_label = st.selectbox(
+                    "Choose a position:",
+                    list(job_options.keys()),
+                    help="Select a specific job for tailored interview questions"
+                )
+                
+                selected_job_data = job_options[selected_job_label]
+                
+                # Display job details
+                if selected_job_data['company']:
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.info(f"**Company:** {selected_job_data['company']}  \n**Role:** {selected_job_data['title']}")
+                    with col2:
+                        st.metric("Match", f"{selected_job_data['score']:.0%}")
+            else:
+                st.info("💡 No job matches found. Starting with generic AI Engineer interview.")
+                selected_job_data = {
+                    'company': '',
+                    'title': 'AI Engineer',
+                    'description': 'General AI/ML engineering interview',
+                    'score': 0
+                }
+            
+            st.divider()
+            
+            # === INTERVIEW CONFIGURATION ===
+            st.subheader("⚙️ Step 2: Configure Interview Settings")
+            
+            col_a, col_b = st.columns(2)
+            
+            with col_a:
+                st.markdown("**Interview Focus**")
+                focus_option = st.radio(
+                    "Select primary focus:",
+                    options=["balanced", "behavioral", "technical"],
+                    format_func=lambda x: {
+                        "balanced": "⚖️ Balanced (50% Technical / 50% Behavioral)",
+                        "behavioral": "💬 Behavioral (80% Behavioral / 20% Technical)",
+                        "technical": "💻 Technical (90% Technical / 10% Behavioral)"
+                    }[x],
+                    help="Choose what aspect of the interview to emphasize",
+                    key="focus_radio"
+                )
+                
+                # Description
+                focus_descriptions = {
+                    "balanced": "Alternates between technical and behavioral questions. Tests both hard and soft skills.",
+                    "behavioral": "Focuses on leadership, teamwork, communication, and past experiences. Great for management roles.",
+                    "technical": "Deep technical deep-dives into ML algorithms, system design, and coding. For IC roles."
+                }
+                st.caption(focus_descriptions[focus_option])
+            
+            with col_b:
+                st.markdown("**Difficulty Level**")
+                difficulty_option = st.radio(
+                    "Select experience level:",
+                    options=["entry", "medium", "senior", "staff"],
+                    format_func=lambda x: {
+                        "entry": "🌱 Entry Level (0-2 years)",
+                        "medium": "🚀 Mid Level (2-5 years)",
+                        "senior": "⭐ Senior (5-10 years)",
+                        "staff": "👑 Staff/Principal (10+ years)"
+                    }[x],
+                    help="Match your current experience level",
+                    key="difficulty_radio"
+                )
+                
+                # Description
+                difficulty_descriptions = {
+                    "entry": "Fundamentals, basic concepts, willingness to learn. Academic projects.",
+                    "medium": "Practical implementation, debugging, system design basics. Real-world projects.",
+                    "senior": "Architecture, scalability, trade-offs. Leadership and mentoring.",
+                    "staff": "Multi-system architecture, org-wide impact. Strategic vision."
+                }
+                st.caption(difficulty_descriptions[difficulty_option])
+            
+            # Save config
+            st.session_state.interview_config = {
+                'focus': focus_option,
+                'difficulty': difficulty_option
+            }
+            
+            st.divider()
+            
+            # === INTERVIEW PREVIEW ===
+            st.subheader("📖 What to Expect")
+            
+            preview_col1, preview_col2 = st.columns(2)
+            
+            with preview_col1:
+                st.markdown("**Interview Structure:**")
+                if difficulty_option == "entry":
+                    st.markdown("""
+                    - Rounds 1-2: Introduction & basic concepts
+                    - Rounds 3-5: Fundamental technical/behavioral
+                    - Rounds 6-8: Applied scenarios
+                    - Rounds 9+: Learning mindset questions
+                    """)
+                elif difficulty_option in ["senior", "staff"]:
+                    st.markdown("""
+                    - Rounds 1-2: Background & leadership intro
+                    - Rounds 3-5: System design & architecture
+                    - Rounds 6-8: Strategic decisions & trade-offs
+                    - Rounds 9+: Org-level impact & vision
+                    """)
+                else:
+                    st.markdown("""
+                    - Rounds 1-2: Warm-up & introduction
+                    - Rounds 3-5: Core technical/behavioral
+                    - Rounds 6-8: Problem-solving deep-dive
+                    - Rounds 9+: Advanced scenarios
+                    """)
+            
+            with preview_col2:
+                st.markdown("**Sample Topics:**")
+                if focus_option == "behavioral":
+                    st.markdown("""
+                    - Leadership & team collaboration
+                    - Conflict resolution
+                    - Project management
+                    - Stakeholder communication
+                    - Learning from failure
+                    """)
+                elif focus_option == "technical":
+                    st.markdown("""
+                    - ML algorithms & deep learning
+                    - System design & architecture
+                    - MLOps & deployment
+                    - Code optimization
+                    - Real-world debugging
+                    """)
+                else:
+                    st.markdown("""
+                    - Technical problem-solving
+                    - Team collaboration
+                    - System design basics
+                    - Communication skills
+                    - Project delivery
+                    """)
+            
+            st.divider()
+            
+            # === START BUTTON ===
+            st.info("💡 **Pro Tip:** Have specific examples from your experience ready. Use the STAR method for behavioral questions (Situation, Task, Action, Result).")
+            
+            if st.button("🚀 Start Interview Session", type="primary", use_container_width=True):
                 st.session_state.interview_active = True
+                st.session_state.selected_interview_job = selected_job_data
                 
-                # Initial Greeting (Manual construction)
-                greeting_text = "Hello! I've reviewed your profile. Tell me about yourself."
-                greeting_sample = "Focus on your current role, 1-2 major achievements, and why you want this specific job. Keep it under 2 minutes."
+                with st.spinner("Initializing AI interviewer..."):
+                    # Generate personalized greeting
+                    greeting = interviewer.generate_initial_greeting(
+                        target_role=selected_job_data['title'],
+                        company_name=selected_job_data['company'],
+                        job_description=selected_job_data['description'],
+                        interview_focus=st.session_state.interview_config['focus'],
+                        difficulty=st.session_state.interview_config['difficulty']
+                    )
+                    
+                    st.session_state.interview_history = [{
+                        "role": "assistant", 
+                        "content": greeting['question'],
+                        "sample_answer": greeting['sample_answer']
+                    }]
+                    
+                    # Generate audio
+                    cleanup_old_audio()
+                    new_path = interviewer.text_to_speech(greeting['question'])
+                    
+                    if new_path:
+                        st.session_state.current_audio_path = new_path
+                    else:
+                        st.warning("Audio generation had issues, but interview will continue.")
                 
-                # Save structured message
-                st.session_state.interview_history = [{
-                    "role": "assistant", 
-                    "content": greeting_text,
-                    "sample_answer": greeting_sample 
-                }]
                 st.rerun()
 
         # --- SCENE 2: ACTIVE INTERVIEW ---
         else:
-            try:
-                interviewer = MockInterviewer(api_key=active_key)
-            except Exception as e:
-                st.error(f"Error: {e}")
-                st.stop()
-
-            # Toolbar
-            col_a, col_b = st.columns([4, 1])
-            with col_a: st.caption("🔴 Live Session Active")
-            with col_b: 
-                if st.button("End Session"):
-                    st.session_state.interview_active = False
+            # ✅ FIX: Add null safety checks
+            job_context = st.session_state.selected_interview_job
+            config = st.session_state.interview_config
+            
+            # ✅ FIX: Provide default values if job_context is None
+            if job_context is None:
+                job_context = {
+                    'company': '',
+                    'title': 'AI Engineer',
+                    'description': 'General AI/ML engineering interview',
+                    'score': 0
+                }
+                st.session_state.selected_interview_job = job_context
+            
+            # ✅ FIX: Provide default config if None
+            if config is None:
+                config = {
+                    'focus': 'balanced',
+                    'difficulty': 'medium'
+                }
+                st.session_state.interview_config = config
+            
+            # === HEADER ===
+            if job_context.get('company'):
+                st.info(f"🎯 **Interviewing for**: {job_context['title']} at {job_context['company']}")
+            else:
+                st.info(f"🎯 **Position**: {job_context.get('title', 'AI Engineer')} (Generic Interview)")
+            
+            # Show config badges
+            col_info1, col_info2, col_info3 = st.columns(3)
+            with col_info1:
+                focus_emoji = {"balanced": "⚖️", "behavioral": "💬", "technical": "💻"}
+                current_focus = config.get('focus', 'balanced')
+                st.caption(f"{focus_emoji.get(current_focus, '⚖️')} Focus: **{current_focus.title()}**")
+            with col_info2:
+                diff_emoji = {"entry": "🌱", "medium": "🚀", "senior": "⭐", "staff": "👑"}
+                current_diff = config.get('difficulty', 'medium')
+                st.caption(f"{diff_emoji.get(current_diff, '🚀')} Level: **{current_diff.title()}**")
+            with col_info3:
+                round_num = len(st.session_state.interview_history) // 2 + 1
+                st.caption(f"🔴 **Round {round_num}**")
+            
+            st.divider()
+            
+            # === TOOLBAR ===
+            col_a, col_b, col_c = st.columns([3, 1, 1])
+            with col_a: 
+                st.caption("🔴 Live Session Active")
+            with col_b:
+                if st.button("🔄 Restart", help="Keep settings, restart conversation"):
+                    cleanup_old_audio()
                     st.session_state.interview_history = []
                     st.session_state.last_processed_audio = None
+                    st.session_state.current_audio_path = None
+                    
+                    # Regenerate greeting
+                    greeting = interviewer.generate_initial_greeting(
+                        target_role=job_context.get('title', 'AI Engineer'),
+                        company_name=job_context.get('company', ''),
+                        job_description=job_context.get('description', ''),
+                        interview_focus=config.get('focus', 'balanced'),
+                        difficulty=config.get('difficulty', 'medium')
+                    )
+                    st.session_state.interview_history = [{
+                        "role": "assistant", 
+                        "content": greeting['question'],
+                        "sample_answer": greeting['sample_answer']
+                    }]
+                    new_path = interviewer.text_to_speech(greeting['question'])
+                    st.session_state.current_audio_path = new_path
+                    st.rerun()
+            with col_c: 
+                if st.button("❌ Exit"):
+                    cleanup_old_audio()
+                    st.session_state.interview_active = False
+                    st.session_state.interview_history = []
+                    st.session_state.current_audio_path = None
+                    st.session_state.selected_interview_job = None
                     st.rerun()
 
-            # --- DISPLAY CHAT HISTORY ---
+            # === AUDIO PLAYER ===
+            if st.session_state.current_audio_path and os.path.exists(st.session_state.current_audio_path):
+                st.audio(
+                    st.session_state.current_audio_path, 
+                    format="audio/mp3", 
+                    autoplay=True
+                )
+
+            # === CHAT HISTORY ===
             chat_container = st.container()
             with chat_container:
-                for message in st.session_state.interview_history:
+                for idx, message in enumerate(st.session_state.interview_history):
                     with st.chat_message(message["role"]):
                         st.write(message["content"])
                         
-                        # ✅ NEW: Show Sample Answer Button (Only for Assistant messages)
+                        # Sample Answer
                         if message["role"] == "assistant" and "sample_answer" in message:
                             with st.expander("💡 View Sample Answer / Hint"):
                                 st.info(message["sample_answer"])
 
-            # --- AUDIO INPUT ---
+            # === AUDIO INPUT ===
             if hasattr(st, 'audio_input'):
-                audio_value = st.audio_input("Record your answer")
+                audio_value = st.audio_input("🎙️ Record your answer")
             else:
-                st.error("Please upgrade Streamlit.")
+                st.error("Please upgrade Streamlit to the latest version.")
                 st.stop()
 
-            # --- PROCESS INPUT ---
+            # === PROCESS INPUT ===
             if audio_value is not None and audio_value != st.session_state.last_processed_audio:
-                with st.spinner("Listening & Analyzing..."):
+                with st.spinner("🎧 Analyzing your response..."):
                     st.session_state.last_processed_audio = audio_value
                     
                     # 1. Transcribe
                     user_text = interviewer.transcribe_audio(audio_value)
-                    st.session_state.interview_history.append({"role": "user", "content": user_text})
                     
-                    # 2. Get AI Response (Returns Dict now)
-                    resume_data = st.session_state.get('resume_profile', {})
-                    target_role = resume_data.get('career_level', 'General') + " Role"
-                    resume_context = st.session_state.get('resume_text', '')[:1000]
+                    if user_text.startswith("Error"):
+                        st.error(user_text)
+                        st.stop()
                     
-                    ai_response_dict = interviewer.get_ai_response(
-                        st.session_state.interview_history, 
-                        target_role=target_role, 
-                        resume_context=resume_context
-                    )
-                    
-                    # 3. Save to History (Question + Sample Answer)
                     st.session_state.interview_history.append({
-                        "role": "assistant", 
-                        "content": ai_response_dict['question'],
-                        "sample_answer": ai_response_dict['sample_answer']
+                        "role": "user", 
+                        "content": user_text
                     })
                     
-                    # 4. Speak ONLY the Question text
-                    audio_path = interviewer.text_to_speech(ai_response_dict['question'])
+                    # 2. Get AI Response with full context
+                    resume_data = st.session_state.get('resume_profile', {})
+                    resume_context = st.session_state.get('resume_text', '')[:1500]
+                    
+                    ai_response = interviewer.get_ai_response(
+                        history=st.session_state.interview_history, 
+                        target_role=job_context.get('title', 'AI Engineer'),
+                        company_name=job_context.get('company', ''),
+                        job_description=job_context.get('description', ''),
+                        resume_context=resume_context,
+                        interview_focus=config.get('focus', 'balanced'),
+                        difficulty=config.get('difficulty', 'medium')
+                    )
+                    
+                    # 3. Save response
+                    st.session_state.interview_history.append({
+                        "role": "assistant", 
+                        "content": ai_response['question'],
+                        "sample_answer": ai_response['sample_answer']
+                    })
+                    
+                    # 4. Generate audio
+                    cleanup_old_audio()
+                    new_path = interviewer.text_to_speech(ai_response['question'])
+                    st.session_state.current_audio_path = new_path
                     
                     st.rerun()
-
-            # --- AUTO-PLAY ---
-            if st.session_state.interview_history:
-                last_msg = st.session_state.interview_history[-1]
-                if last_msg["role"] == "assistant":
-                    if audio_value == st.session_state.last_processed_audio:
-                        if os.path.exists("temp_response.mp3"):
-                            st.audio("temp_response.mp3", format="audio/mp3", autoplay=True)
-                
+                    
 elif not uploaded_file:
     pass
