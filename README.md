@@ -9,7 +9,6 @@
 ![Llama](https://img.shields.io/badge/Llama%203.3-Groq-purple?style=for-the-badge)
 ![LangGraph](https://img.shields.io/badge/Agentic-LangGraph-orange?style=for-the-badge)
 
-
 **[Features](#-features) • [Demo](#-demo) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Documentation](#-documentation)**
 
 </div>
@@ -24,10 +23,10 @@ CareerCompass AI is an **autonomous, multimodal AI career intelligence system** 
 - 📊 **Live Market Intelligence** - Semantic matching against real-time job market data
 - 🎯 **Precision Gap Analysis** - Mathematical computation of skill gaps with severity scoring
 - 🗺️ **Personalized Roadmaps** - Transfer learning strategies based on your existing stack
-- 🎤 **AI Mock Interviews** - Real-time voice interaction with <1s response latency
+- 🎤 **AI Mock Interviews** - Real-time voice interaction with customizable difficulty levels
 - 📄 **ATS Optimization** - STAR-method resume tailoring for maximum ATS scores
 
-### 💡 The Problem Solve
+### 💡 The Problem We Solve
 
 Traditional job applications are a **blind process** - candidates apply without knowing:
 - Which specific skills they're missing
@@ -39,7 +38,7 @@ Traditional job applications are a **blind process** - candidates apply without 
 
 ---
 
-##  Features
+## ✨ Features
 
 ### 🤖 AI-Powered Analysis Engine
 
@@ -91,19 +90,36 @@ Transfer Strategy:
 Voice Input → Whisper V3 → Llama 3.3 → EdgeTTS → Audio Output
 ```
 
-**Key Features:**
+**Advanced Features:**
 - **<1s Latency**: Powered by Groq LPU (300+ tokens/sec)
-- **Structured Feedback**: JSON-formatted evaluation (Clarity, Technical Depth, Areas to Improve)
-- **Progressive Difficulty**: Adapts questions based on your responses
-- **Sample Answers**: Hidden expert responses for self-evaluation
-- **Session Memory**: Maintains context across the entire interview
+- **4 Difficulty Levels**: Entry (0-2 yrs) → Mid (2-5 yrs) → Senior (5-10 yrs) → Staff (10+ yrs)
+- **3 Interview Focuses**: Behavioral (80/20) / Technical (90/10) / Balanced (50/50)
+- **AI Engineer Specialization**: Deep knowledge of ML/AI, NLP, Computer Vision, MLOps
+- **Job-Specific Context**: Tailored questions based on selected job position
+- **Progressive Difficulty**: Questions adapt based on your performance
+- **Expert Sample Answers**: Level-appropriate responses with STAR method
+
+#### **Configuration Matrix**
+
+| Difficulty | Experience | Question Style |
+|-----------|-----------|----------------|
+| 🌱 **Entry** | 0-2 years | Fundamentals, willingness to learn |
+| 🚀 **Mid** | 2-5 years | Practical implementation, debugging |
+| ⭐ **Senior** | 5-10 years | Architecture, scalability, trade-offs |
+| 👑 **Staff** | 10+ years | Multi-system architecture, org impact |
+
+| Focus | Split | Best For |
+|-------|-------|----------|
+| 💬 **Behavioral** | 80% Behavioral / 20% Technical | Management roles, culture-fit |
+| 💻 **Technical** | 90% Technical / 10% Behavioral | IC roles, technical specialists |
+| ⚖️ **Balanced** | 50% / 50% | General roles, holistic assessment |
 
 **Tech Stack:**
 | Component | Technology | Why? |
 |-----------|-----------|------|
 | Speech-to-Text | Whisper Large V3 Turbo | 8x faster than base Whisper |
-| Logic Engine | Llama 3.3 70B (JSON mode) | Structured outputs for UI integration |
-| Text-to-Speech | Edge-TTS | Neural voices with zero cost/latency |
+| Logic Engine | Llama 3.3 70B (JSON mode) | Structured outputs, <1s latency |
+| Text-to-Speech | Edge-TTS + gTTS | Neural voices with fallback reliability |
 
 ### 📄 ATS Resume Optimizer
 
@@ -149,9 +165,9 @@ graph TB
     
     subgraph "🎤 Real-Time Interaction"
         M[Microphone Input] -->|Whisper V3| N[Speech-to-Text]
-        N -->|LangChain Prompt| O[Llama 3.3 Interviewer]
-        O -->|JSON Response| P[Feedback + Question]
-        P -->|EdgeTTS| Q[Neural Voice Output]
+        N -->|Context-Aware Prompt| O[Llama 3.3 Interviewer]
+        O -->|JSON Response| P[Question + Sample Answer]
+        P -->|EdgeTTS/gTTS| Q[Neural Voice Output]
     end
     
     subgraph "📤 Output Generation"
@@ -196,10 +212,12 @@ graph TB
 - **Prompt Engineering**: Few-shot examples with transfer learning focus
 - **Resource Curation**: Regex filtering for official docs + validated tutorial links
 
-#### **5. Voice Interviewer** (`core/interviewer.py`)
-- **Streaming Pipeline**: asyncio-based for parallel processing
-- **State Management**: Session-scoped question history
-- **Error Handling**: Automatic retry with exponential backoff
+#### **5. Context-Aware Mock Interviewer** (`core/interviewer.py`)
+- **Multi-Level System**: Entry/Mid/Senior/Staff difficulty calibration
+- **Focus Control**: Behavioral/Technical/Balanced question distribution
+- **AI Engineer Specialization**: ML fundamentals, LLMs, NLP, Computer Vision, MLOps knowledge base
+- **Adaptive Logic**: Progressive difficulty based on answer quality
+- **Dual TTS Engine**: EdgeTTS with gTTS fallback for reliability
 
 ---
 
@@ -264,11 +282,17 @@ The app will open at `http://localhost:8501`
 
 1. **Enter Target Role**: Type job title (e.g., "Machine Learning Engineer")
 2. **Optional Filters**: Add location, experience level
-3. **Live Scraping**: System fetches 20-50 recent job postings
+3. **Live Scraping**: System fetches 20-50 recent job postings from multiple sources
 4. **Semantic Matching**: FAISS compares your skills against market demand
 
 **Sample Output:**
 ```
+🔎 Dorking LinkedIn via DuckDuckGo...
+-> Found 24 potential jobs on LinkedIn
+🔎 Dorking JobStreet via DuckDuckGo...
+-> Found 12 potential jobs on JobStreet
+✓ Found 78 jobs from real-world sources.
+
 📊 Market Analysis Results:
 ✅ Strong Match: Python, Docker, Git (95% of jobs)
 ⚠️ Partial Match: TensorFlow, Kubernetes (60% of jobs)
@@ -297,24 +321,59 @@ The app will open at `http://localhost:8501`
 
 ### 4️⃣ AI Mock Interview
 
-1. **Start Session**: Click "Begin Interview" in sidebar
-2. **Speak Naturally**: Click mic → Answer question → Release
-3. **Instant Feedback**: Receive structured evaluation + next question
-4. **Compare Answers**: Toggle "Show Sample Answer" to see expert response
+#### **Step 1: Configure Your Interview**
+1. **Select Target Job**: Choose from your matched positions or generic AI Engineer
+2. **Choose Focus**: 
+   - 💬 **Behavioral** (80/20) - Leadership, teamwork, communication
+   - 💻 **Technical** (90/10) - Deep technical, algorithms, system design
+   - ⚖️ **Balanced** (50/50) - Holistic evaluation
+3. **Set Difficulty**:
+   - 🌱 **Entry** - Fundamentals and basic concepts
+   - 🚀 **Mid** - Practical implementation and debugging
+   - ⭐ **Senior** - Architecture and scalability
+   - 👑 **Staff** - Org-wide impact and strategic vision
+
+#### **Step 2: Practice Interview**
+1. **Start Session**: Click "Start Interview Session"
+2. **Listen**: AI asks job-specific questions
+3. **Speak**: Record your answer using the microphone
+4. **Get Feedback**: Receive immediate evaluation
+5. **View Sample**: Check expert-level answers for guidance
 
 **Interview Flow:**
 ```
 User speaks → Whisper transcribes → Llama evaluates → EdgeTTS responds
              ↓
-Question bank adapts based on:
+Question adapts based on:
 - Your resume skills
 - Target job requirements
+- Selected difficulty level
+- Interview focus (behavioral/technical)
 - Previous answer quality
+```
+
+**Example Questions by Level:**
+
+**Entry-Level Technical:**
+```
+"Can you explain what overfitting is and how you would detect it?"
+```
+
+**Senior-Level Behavioral:**
+```
+"Tell me about a time you had to make a critical technical decision 
+that affected multiple teams. Use the STAR method."
+```
+
+**Staff-Level Balanced:**
+```
+"How would you design a distributed training system for a 70B parameter 
+foundation model? Consider architecture, cost, and fault tolerance."
 ```
 
 ### 5️⃣ Resume Optimization
 
-1. **Paste Job Description**: Copy target JD into text box
+1. **Select Target Job**: Choose from your matched positions
 2. **Generate Tailored Resume**: AI rewrites experience with:
    - STAR method formatting
    - Keyword optimization for ATS
@@ -330,7 +389,7 @@ Question bank adapts based on:
 | **LLM** | Groq (Llama 3.3 70B) | Agentic reasoning, roadmap generation | 300+ tok/s, <1s latency |
 | **Embeddings** | sentence-transformers/all-MiniLM-L6-v2 | Semantic skill matching | 384-dim, 20ms/batch |
 | **Speech-to-Text** | Whisper Large V3 Turbo | Voice interview transcription | 8x faster than base |
-| **Text-to-Speech** | Edge-TTS | Natural voice synthesis | Neural quality, zero cost |
+| **Text-to-Speech** | Edge-TTS + gTTS | Natural voice synthesis | Neural quality with reliability |
 | **Orchestration** | LangGraph | Agentic workflow management | State persistence, retries |
 | **Vector DB** | FAISS | High-speed similarity search | 10M+ vectors, <100ms query |
 | **Web Scraping** | DuckDuckGo + BeautifulSoup | Job market data | Rotating headers, resilient |
@@ -349,10 +408,10 @@ Question bank adapts based on:
 - 384 dimensions sufficient for skill matching
 - 20ms batch processing vs. 200ms+ API calls
 
-**Edge-TTS over ElevenLabs:**
-- Zero cost (uses Microsoft Edge's engine)
-- Acceptable quality for technical interviews
-- No rate limits or quota concerns
+**Edge-TTS + gTTS Dual System:**
+- EdgeTTS for neural voice quality
+- gTTS as reliable fallback
+- Zero cost with no rate limits
 
 ---
 
@@ -369,7 +428,7 @@ CareerCompass-AI/
 │
 ├── 📁 core/                           # Core business logic
 │   ├── agent_graph.py                 # LangGraph orchestration
-│   ├── interviewer.py                 # Voice pipeline (Whisper + EdgeTTS)
+│   ├── interviewer.py                 # Context-aware voice pipeline
 │   ├── resume_parser.py               # PDF extraction + NER
 │   ├── semantic_matcher.py            # FAISS vector matching
 │   ├── gap_analyzer.py                # Market scraping + severity scoring
@@ -377,7 +436,7 @@ CareerCompass-AI/
 │   ├── resume_tailor.py               # ATS optimization agent
 │   ├── cover_letter_generator.py      # Tone-adaptive writer
 │   ├── job_matcher.py                 # Cosine similarity ranker
-│   └── job_scraper.py                 # DuckDuckGo scraper
+│   └── job_scraper.py                 # Multi-source job scraper
 │
 ├── 📁 data/                           # Static data & templates
 │   ├── skills_categories.py           # 1000+ validated tech terms
@@ -395,9 +454,13 @@ CareerCompass-AI/
 │       └── Resume.pdf                 # Sample resume for testing
 │
 └── 📁 assets/                         # Documentation images
-    └── dashboard.png
+    ├── dashboard.png
+    ├── resume_analysis.png
+    ├── job_match.png
+    ├── roadmap.png
+    ├── letter.png
+    └── interviewer.png
 ```
-
 
 ---
 
@@ -406,20 +469,16 @@ CareerCompass-AI/
 ### Dashboard Overview
 ![Dashboard](assets/dashboard.png)
 
-### Feature Highlights
-
-**Resume Analysis**
+### Resume Analysis
 ![Resume Analysis](assets/resume_analysis.png)
 
+**AI identifies 40 skills across 5 categories with semantic validation**
 
-**Job Searching**
+### Job Market Intelligence
 ```
 🔎 Dorking LinkedIn via DuckDuckGo...
-✓ AI identified 40 skills across 5 categories.
-🔎 Dorking LinkedIn via DuckDuckGo...
-🔎 Dorking LinkedIn via DuckDuckGo...
--> Found 24 potential jobs on LinkedIn
 🔎 Dorking JobStreet via DuckDuckGo...
+-> Found 24 potential jobs on LinkedIn
 -> Found 12 potential jobs on JobStreet
 🔎 Dorking Indeed via DuckDuckGo...
 -> Found 24 potential jobs on Indeed
@@ -427,11 +486,10 @@ CareerCompass-AI/
 -> Found 24 potential jobs on Glassdoor
 ✓ Found 78 jobs from real-world sources.
 ```
-![Job Found](assets/job_match.png)
 
+![Job Matching](assets/job_match.png)
 
-**Gap Analysis Chart**
-
+### Gap Analysis & Learning Roadmap
 ```
 📊 AI analyzing skill gaps across market data...
 ✓ Identified 4 critical gaps.
@@ -440,19 +498,20 @@ CareerCompass-AI/
 ☁️ Generating Market Keyword Cloud...
 ```
 
-**Personalized Learning Roadmap**
 ![Learning Roadmap](assets/roadmap.png)
 
-
-**AI Cover Letter Generator**
+### AI Cover Letter Generator
 ![AI Cover Letter Writer](assets/letter.png)
 
-
-**Mock Interview Session**
+### Context-Aware Mock Interviewer
 ![Your Personalized Mock Interviewer](assets/interviewer.png)
-```
 
-```
+**Features:**
+- ✅ 4 difficulty levels (Entry → Staff)
+- ✅ 3 interview focuses (Behavioral/Technical/Balanced)
+- ✅ Job-specific questions
+- ✅ Real-time feedback
+- ✅ Expert sample answers
 
 ---
 
@@ -465,7 +524,6 @@ Create a `.env` file in the project root:
 ```bash
 # Required
 GROQ_API_KEY=gsk_...
-
 ```
 
 ### Advanced Settings (`config.py`)
@@ -488,46 +546,30 @@ RETRY_ATTEMPTS = 3
 # Interview Settings
 STT_MODEL = "whisper-large-v3-turbo"
 TTS_VOICE = "en-US-AriaNeural"
-MAX_INTERVIEW_ROUNDS = 10
+DIFFICULTY_LEVELS = ["entry", "medium", "senior", "staff"]
+FOCUS_OPTIONS = ["behavioral", "technical", "balanced"]
 ```
-
 ---
-
-## 🧪 Testing
-
-### Run Sample Analysis
-
-```bash
-# Test resume parser
-python -m core.resume_parser sample_data/resumes/Resume.pdf
-
-# Test semantic matcher
-python -m core.semantic_matcher --skills "Python,Java,React"
-
-# Test gap analyzer
-python -m core.gap_analyzer --role "Data Scientist"
-
-# Full integration test
-python main.py --test-mode
-```
-
----
-
 
 ## 🔮 Roadmap
 
-### Phase 1: Core Enhancements =
+### Phase 1: 
 - [ ] **Video Analysis**: Integrate OpenCV for facial expression/confidence scoring
 - [ ] **Database Layer**: PostgreSQL for persistent user profiles & progress tracking
 - [ ] **Authentication**: User accounts with OAuth2 (Google/GitHub login)
 - [ ] **Mobile App**: React Native version for on-the-go practice
 
-### Phase 2: Advanced Features
+### Phase 2:
+- [ ] **Interview Analytics**: Performance scoring, strengths/weaknesses report
 - [ ] **Salary Predictor**: ML model for compensation estimation based on skills
 - [ ] **Network Analysis**: LinkedIn API integration for connection insights
 - [ ] **Collaborative Mode**: Share roadmaps and interview recordings
-- [ ] **Company Intel**: Glassdoor/Blind integration for culture insights
 
+### Phase 3:
+- [ ] **B2B Platform**: White-label version for recruitment agencies
+- [ ] **Bulk Processing**: Batch resume screening for hiring managers
+- [ ] **API Marketplace**: Public API for third-party integrations
+- [ ] **Custom Training**: Fine-tuned models for niche industries
 
 ---
 
@@ -539,6 +581,6 @@ python main.py --test-mode
 - **Meta** for open-sourcing Llama 3.3
 - **OpenAI** for Whisper speech recognition
 - **Streamlit** for the amazing web framework
+- **Microsoft** for Edge-TTS neural voices
 
 ---
-
