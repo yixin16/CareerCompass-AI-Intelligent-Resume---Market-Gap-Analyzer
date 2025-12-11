@@ -469,6 +469,10 @@ CareerCompass-AI/
 ### Dashboard Overview
 ![Dashboard](assets/dashboard.png)
 
+![Dashboard](assets/dashboard_2.png)
+
+![Dashboard](assets/dashboard_3.png)
+
 ### Resume Analysis
 ![Resume Analysis](assets/resume_analysis.png)
 
