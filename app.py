@@ -288,27 +288,163 @@ if st.session_state['analysis_complete']:
     roadmap = st.session_state['roadmap']
     
     st.divider()
+    st.header("👤 Your Professional Profile")
     
+    # === AI-GENERATED SUMMARY ===
+    if profile.get('profile_summary'):
+        st.info(f"**🎯 AI Analysis**\n\n{profile['profile_summary']}")
+    
+    st.markdown("###")  # Spacer
     # Top Stats Row
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: st.metric("Career Level", profile.get('career_level', 'N/A'))
+    col1, col2, col3, col4 = st.columns(4)
     
-    # Handle Experience safely
-    exp = profile.get('experience', {})
-    if isinstance(exp, dict):
-        years = exp.get('total_years', 'N/A')
-    else:
-        years = "N/A"
-    with c2: st.metric("Experience", f"{years} Years")
+    with col1: 
+        career_level = profile.get('career_level', 'N/A')
+        career_stage = profile.get('career_stage', '')
+        st.metric("Career Level", career_level, delta=career_stage, delta_color="off")
     
-    with c3: st.metric("Skills Identified", profile.get('total_skills', 0))
-    with c4: st.metric("Jobs Analyzed", len(matches) if matches else 0)
+    with col2:
+        exp = profile.get('experience', {})
+        years = exp.get('total_years', 0) if isinstance(exp, dict) else 0
+        st.metric("Experience", f"{years} Year{'s' if years != 1 else ''}")
+    
+    with col3: 
+        total_skills = profile.get('total_skills', 0)
+        st.metric("Skills Identified", total_skills)
+    
+    with col4: 
+        jobs_count = len(matches) if matches else 0
+        st.metric("Jobs Analyzed", jobs_count)
 
-    st.markdown("###") # Spacer
+    st.divider()
+    if profile.get('skill_diversity'):
+        diversity = profile['skill_diversity']
+        
+        st.subheader("🎨 Skill Profile Analysis")
+        
+        col_a, col_b = st.columns([2, 1])
+        
+        with col_a:
+            st.markdown(f"""
+            **Profile Type:** {diversity.get('profile_type', 'N/A')}
+            
+            **Analysis:**
+            - Total Skills: {diversity.get('total_skills', 0)}
+            - Skill Categories: {diversity.get('num_categories', 0)}
+            - Avg Skills per Category: {diversity.get('avg_skills_per_category', 0)}
+            - Strongest Domain: {diversity.get('strongest_category', 'N/A')}
+            
+            **Insight:** {diversity.get('recommendation', 'Continue developing your skillset.')}
+            """)
+        
+        with col_b:
+            # Visual indicator
+            profile_type = diversity.get('profile_type', '')
+            if 'Full-Stack' in profile_type or 'Generalist' in profile_type:
+                st.success("🌐 **Full-Stack Profile**\nBroad technical expertise")
+            elif 'Specialist' in profile_type or 'Expert' in profile_type:
+                st.info("🎯 **Specialist Profile**\nDeep domain expertise")
+            elif 'Balanced' in profile_type:
+                st.success("⚖️ **Balanced Profile**\nGood breadth & depth")
+            else:
+                st.warning("🌱 **Growing Profile**\nBuilding foundation")
+    
+    st.divider()
+    
+    # === STRENGTHS & ACHIEVEMENTS ===
+    col_left, col_right = st.columns(2)
+    
+    with col_left:
+        st.subheader("💪 Key Strengths")
+        if profile.get('strengths'):
+            for idx, strength in enumerate(profile['strengths'], 1):
+                st.markdown(f"{idx}. {strength}")
+        else:
+            st.info("Continue building your professional portfolio")
+    
+    with col_right:
+        st.subheader("🏆 Achievements Detected")
+        achievements = profile.get('achievements', [])
+        if achievements:
+            metric_achievements = [a for a in achievements if 'metric' in a]
+            recognition_achievements = [a for a in achievements if 'type' == 'recognition']
+            
+            st.metric("Quantifiable Results", len(metric_achievements))
+            st.metric("Recognitions", len(recognition_achievements))
+            
+            # Show top 3 achievements
+            if metric_achievements:
+                with st.expander("📊 View Top Achievements"):
+                    for i, achievement in enumerate(metric_achievements[:3], 1):
+                        st.markdown(f"**{i}.** {achievement.get('metric', 'N/A')}")
+                        st.caption(achievement.get('context', '')[:150] + "...")
+        else:
+            st.info("Add quantifiable achievements to strengthen your resume (e.g., 'Increased performance by 40%')")
+    
+    st.divider()
+    
+    # === CONTACT & DIGITAL PRESENCE ===
+    st.subheader("📞 Contact & Digital Presence")
+    
+    contact_col1, contact_col2, contact_col3 = st.columns(3)
+    
+    contact_info = profile.get('contact_info', {})
+    
+    with contact_col1:
+        email = contact_info.get('email')
+        if email:
+            st.markdown(f"**Email:** {email}")
+        else:
+            st.caption("No email detected")
+    
+    with contact_col2:
+        phone = contact_info.get('phone')
+        if phone:
+            st.markdown(f"**Phone:** {phone}")
+        else:
+            st.caption("No phone detected")
+    
+    with contact_col3:
+        links = contact_info.get('links', [])
+        if links:
+            st.markdown("**Links:**")
+            for link in links:
+                link_type = link.get('type', 'Link')
+                link_url = link.get('url', '#')
+                st.markdown(f"- [{link_type}]({link_url})")
+        else:
+            st.caption("No portfolio links detected")
+    
+    st.divider()
+    
+    # === RECOMMENDATIONS ===
+    recommendations = profile.get('recommendations', [])
+    if recommendations:
+        st.subheader("💡 Personalized Recommendations")
+        
+        for rec in recommendations:
+            priority = rec.get('priority', 'Medium')
+            category = rec.get('category', 'General')
+            suggestion = rec.get('suggestion', '')
+            reasoning = rec.get('reasoning', '')
+            
+            # Color-code by priority
+            if priority == 'High':
+                st.error(f"**🔴 {priority} Priority - {category}**")
+            elif priority == 'Medium':
+                st.warning(f"**🟡 {priority} Priority - {category}**")
+            else:
+                st.info(f"**🟢 {priority} Priority - {category}**")
+            
+            st.markdown(f"**Suggestion:** {suggestion}")
+            st.caption(f"*Why?* {reasoning}")
+            st.markdown("")  # Spacer
+
+    st.markdown("###")  # Spacer
 
     # Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📊 Profile & Market", 
+        "📊 Market Analysis", 
         "💼 Job Matches", 
         "🎓 Learning Roadmap", 
         "✍️ AI Cover Letter",
@@ -319,15 +455,14 @@ if st.session_state['analysis_complete']:
     with tab1:
         col1, col2 = st.columns([1, 1])
         with col1:
-            st.subheader("Your Skill Profile")
+            st.subheader("Your Skill Distribution")
             if os.path.exists("output/visual_skill_radar.png"):
-                # FIX 2: Replaced use_column_width/use_container_width with standard streamlit approach
-                st.image("output/visual_skill_radar.png", caption="Skill Distribution")
+                st.image("output/visual_skill_radar.png", caption="Skill Radar Chart")
             else:
                 st.info("Not enough data for Radar Chart.")
                 
         with col2:
-            st.subheader("Market Demand")
+            st.subheader("Market Demand Heatmap")
             if os.path.exists("output/visual_market_wordcloud.png"):
                 st.image("output/visual_market_wordcloud.png", caption="Trending Keywords")
                 
