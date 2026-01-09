@@ -1026,7 +1026,7 @@ DOMAIN_WEIGHTS = {
 
 ## 🔮 Roadmap
 
-### Phase 1: Enhanced Analytics (Q2 2025)
+### Phase 1: Enhanced Analytics
 - [ ] **Interview Performance Dashboard**
   - Score tracking across sessions
   - Strengths/weaknesses heatmap
@@ -1040,7 +1040,7 @@ DOMAIN_WEIGHTS = {
   - Session history and replay
   - Cross-device sync
 
-### Phase 2: Advanced Intelligence (Q3 2025)
+### Phase 2: Advanced Intelligence
 - [ ] **Salary Prediction Model**
   - ML model trained on 100K+ data points
   - Skills + location + experience → salary range
@@ -1054,7 +1054,7 @@ DOMAIN_WEIGHTS = {
   - Peer interview practice (1-on-1 matching)
   - Community learning groups
 
-### Phase 3: Enterprise (Q4 2025)
+### Phase 3: Enterprise
 - [ ] **B2B Platform**
   - White-label deployment for recruitment agencies
   - Bulk candidate screening
